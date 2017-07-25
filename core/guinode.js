@@ -70,6 +70,8 @@ class GUI_line_2_node
     }
 };
 
+var _drawcalls = 0;
+
 /*
     A simple container class for all objects presented on the drawing canvas
 
@@ -83,8 +85,12 @@ class GUI_line_2_node
 
 class GUI_node 
 {
-    constructor(renderobj) {
-		this._renderer       = renderobj;
+    constructor(renderobj, id) {
+		this._radius         = 8;
+        
+        this._rect           = { x: 0, y: 0, w: 16, h: 16 };
+
+        this._renderer       = renderobj;
         this._selected       = false;
         this._icons          = [];
         this._border_color   = '#dedede';
@@ -93,12 +99,7 @@ class GUI_node
         this._icon_color     = '#000000';
         this._caption_color  = '#ffffff';
         this._shape          = 'square';
-        this._px             = 0;
-        this._py             = 0;
         this._caption        = '';
-        this._width          = 16;
-        this._height         = 16;
-        this._radius         = 8;
         this._text_autohide  = false;
         this._got_focus      = false;
         this._draggable      = false;
@@ -116,8 +117,19 @@ class GUI_node
         this._highlighted    = false;
         this._highlightable  = true;
         this._static_color   = false;
+        this._id             = id;
+        this._quad_ids       = [];
 	}
 
+    set_quad_ids(ids) {
+        this._quad_ids = ids;
+    }
+
+    quad_ids() { return this._quad_ids; }
+
+    set_rect(rect) { this._rect = rect; }
+    rect() { return this._rect; }
+    id() { return this._id; }
     set_static_color(st) { this._static_color = st; }
     static_color() { return this._static_color; }
     print() {
@@ -129,17 +141,19 @@ class GUI_node
 
     icon_offset() { return [this._icon_x_offset, this._icon_y_offset]; }
 
-    x() { return this._px; }
-    y() { return this._py; }
+    x() { return this._rect.x; }
+    y() { return this._rect.y; }
 
     autohidden_caption() { return this._text_autohide; }
     selected() { return this._selected; }
     caption_color() { return this._text_color; }
     caption() { return this._caption; }
-    width() { return this._width; }
-    height() { return this._height; }
-    radius() { return this._width / 2.0; }
-    rect() { return [this._px, this._py, this._width, this._height]; }
+    
+    width() { return this._rect.w; }
+    height() { return this._rect.h; }
+    
+    radius() { return this._radius; }
+    
     radius() { return this._radius; }
     icons() { return this._icons; }
     is_box() { return false; }
@@ -310,8 +324,28 @@ class GUI_node
      * @param {number} y
      */
     set_pos(x, y) {
-        this._px = x;
-        this._py = y;
+        this._rect.x = x;
+        this._rect.y = y;
+    }
+
+    
+    /**
+     * Sets the radius of the circle
+     * @param {number} radius 
+     */
+    set_radius(radius) {
+        this._rect.w = radius*2.0;
+        this._rect.h = radius*2.0;
+        this._radius = radius;
+    }
+
+    /**
+     * Sets the hight of the node in pixels
+     * 
+     * @param {number} height
+     */
+    set_height(height) {
+        this._rect.h = height;
     }
 
     /**
@@ -320,28 +354,10 @@ class GUI_node
      * @param {number} width
      */
     set_width(width) {
-        this._width = width;
-        this._radius = width/2;
+        this._rect.w = width;
     }
 
-    /**
-     * Sets the radius of the circle
-     * @param {number} radius 
-     */
-    set_radius(radius) {
-        this._width = radius/2.0;
-        this._radius = radius;
-    }
 
-    /**
-     * Sets the hight of the node in pixels, also sets the radius to be height / 2
-     * 
-     * @param {number} height
-     */
-    set_height(height) {
-        this._height = height;
-        this._radius = height/2;
-    }
 
     /**
      * Sets the caption of the node as String
@@ -359,7 +375,7 @@ class GUI_node
      * @param {number} margin
      */
     calculate_width_from_caption(margin) {
-        this._width = this._renderer.calc_text_width(this._font_size+'px Bitstream Vera Sans Mono', this._caption) + margin * 2;
+        this._rect.w = this._renderer.calc_text_width(this._font_size+'px Bitstream Vera Sans Mono', this._caption) + margin * 2;
     }
 
     /**
@@ -414,11 +430,17 @@ class GUI_node
      * @returns {GUI_node} if we didnt draw it, we return it, else null
      */
     draw(first = true) {
+        _drawcalls++;
+
+        if (_drawcalls % 1000 == 0) {
+            console.log('draw: ' + _drawcalls);
+        }
+
         if (first && this._selected && this._text_autohide) {
             return this;
         }
 
-        var w = this._width;
+        var w = this._rect.w;
         var bc = this._border_color;
         var bt = this._border_thickness;
 
@@ -438,13 +460,13 @@ class GUI_node
         }
 
         if (this._shape == 'square') {
-            this._renderer.draw_box(this._px, this._py, this._width, this._height, shaded_color, bc, bt);
+            this._renderer.draw_box(this._rect.x, this._rect.y, this._rect.w, this._rect.h, shaded_color, bc, bt);
         }
         else if (this._shape == 'circle') {
-            this._renderer.draw_circle(this._px, this._py, this._radius, bt, shaded_color, bc);
+            this._renderer.draw_circle(this._rect.x, this._rect.y, this._radius, bt, shaded_color, bc);
         }
         else if (this._shape == 'triangle') {
-             this._renderer.draw_triangle(this._px, this._py, this._width, bt, shaded_color, bc);
+             this._renderer.draw_triangle(this._rect.x, this._rect.y, this._rect.w, bt, shaded_color, bc);
         }
 
         
@@ -461,22 +483,22 @@ class GUI_node
             else {
                 var cs = this._renderer.contrast(shaded_color);
 
-                this._renderer.draw_text_color(this._px + this._width/2 - w/2, this._py + this._height/2 + 4, this._font, this._font_size, cs, this._caption);
+                this._renderer.draw_text_color(this._rect.x + this._rect.w/2 - w/2, this._rect.y + this._rect.h/2 + 4, this._font, this._font_size, cs, this._caption);
             }
         }
 
         var mc = this._indicator_color;
 
         if (mc != null) {
-            this._renderer.draw_fill_path([this._px, this._py], [this._px + 10, this._py], [this._px, this._py + 10], 1.0, mc, '#ffffff');
+            this._renderer.draw_fill_path([this._rect.x, this._rect.y], [this._rect.x + 10, this._rect.y], [this._rect.x, this._rect.y + 10], 1.0, mc, '#ffffff');
         }
 
-        var add = (1.0 / (this._icons.length + 1)) * this._width;
-        var ix = this._px - this._width/2;
-        var iy = this._py - this._font_size+1;
+        var add = (1.0 / (this._icons.length + 1)) * this._rect.w;
+        var ix = this._rect.x - this._rect.w/2;
+        var iy = this._rect.y - this._font_size+1;
 
         if (this._caption == '') {
-            iy = this._py;
+            iy = this._rect.y;
         }
         
         ix += this._icon_x_offset;
@@ -492,42 +514,7 @@ class GUI_node
 
     }
 
-    /**
-     * Helper function to determine point in triangle
-     * 
-     * @param {number} x0
-     * @param {number} y0
-     * @param {number} x1
-     * @param {number} y1
-     * @param {number} x2
-     * @param {number} y2
-     */
-    sign (x0, y0, x1, y1, x2, y2) {
-        return (x0 - x2) * (y1 - y2) - (x1 - x2) * (y0 - y2);
-    }
-
-    /**
-     * Determine is the point x and y is inside a triangle with the given corners 0,1,2
-     * 
-     * @param {number} x point
-     * @param {number} y point
-     * @param {number} x0 corner0
-     * @param {number} y0 corner0
-     * @param {number} x1 corner1
-     * @param {number} y1 corner1
-     * @param {number} x2 corner2
-     * @param {number} y2 corner2
-     * 
-     * @returns {boolean}
-     */
-    point_in_triangle(x, y, x0, y0, x1, y1, x2, y2) {
-        var b1 = this.sign(x, y, x0, y0, x1, y1) < 0.0;
-        var b2 = this.sign(x, y, x1, y1, x2, y2) < 0.0;
-        var b3 = this.sign(x, y, x2, y2, x0, y0) < 0.0;
-
-        return ((b1 == b2) && (b2 == b3));
-    }
-
+    
     /**
      * Test if the point is located inside the node
      * 
@@ -543,19 +530,19 @@ class GUI_node
         var test = false;
 
         if (this._shape == 'circle') {
-            test = (x - this._px)*(x - this._px) + (y - this._py)*(y - this._py) < this._radius*this._radius;
+            test = (x - this._rect.x)*(x - this._rect.x) + (y - this._rect.y)*(y - this._rect.y) < this._radius*this._radius;
         }
         else if (this._shape == 'square') {
             
-            if (this._px > x) { test = false; }
-            else if (this._px + this._width < x) { test = false; }
-            else if (this._py + this._height < y) { test = false; }
-            else if (this._py > y) { test = false; }
+            if (this._rect.x > x) { test = false; }
+            else if (this._rect.x + this._rect.w < x) { test = false; }
+            else if (this._rect.y + this._rect.h < y) { test = false; }
+            else if (this._rect.y > y) { test = false; }
             else { test = true; }
             
         }
         else if (this._shape == 'triangle') {
-            test = this.point_in_triangle(x, y, this._px - this._width/2, this._py + this._height/2, this._px + this._width/2, this._py + this._height/2, this._px, this._py - this._height/2);
+            test = point_in_triangle(x, y, this._rect.x - this._rect.w/2, this._rect.y + this._rect.h/2, this._rect.x + this._rect.w/2, this._rect.y + this._rect.h/2, this._rect.x, this._rect.y - this._rect.h/2);
         }
         
         if (test) { return this; }

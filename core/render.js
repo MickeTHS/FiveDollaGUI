@@ -45,18 +45,17 @@ class Render_text {
 	rs.draw_box(0,0,10,10,'#000000','#aaaaaa');
 	rs.swap_buffer();
 */
-
 class Render_screen {
 	/* give the canvas id you want to draw to */
 	constructor(canvas_id, width, height) {
-		this._mainscreen = document.getElementById(canvas_id);
-		this._mainscreen_ctx = this._mainscreen.getContext("2d");
-		this._offscreen = document.createElement("canvas");
-        this._mainscreen.width = width;
+		this._mainscreen 		= document.getElementById(canvas_id);
+		this._mainscreen_ctx 	= this._mainscreen.getContext("2d");
+		this._offscreen 		= document.createElement("canvas");
+        this._mainscreen.width 	= width;
         this._mainscreen.height = height;
-		this._offscreen.width = this._mainscreen.width;
-		this._offscreen.height = this._mainscreen.height;
-		this._offscreen_ctx = this._offscreen.getContext("2d");
+		this._offscreen.width 	= this._mainscreen.width;
+		this._offscreen.height 	= this._mainscreen.height;
+		this._offscreen_ctx 	= this._offscreen.getContext("2d");
 		
         console.log('context sizes: ' + this._mainscreen.width + ' ' + this._mainscreen.height);
 
@@ -75,7 +74,7 @@ class Render_screen {
         canvas.width = img.width;
         canvas.height = img.height;
         
-        canvas.getContext('2d').drawImage(img, 0, 0, img.width, img.height);
+		canvas.getContext('2d').drawImage(img, 0, 0, img.width, img.height);
 
         return canvas;
     }
@@ -131,16 +130,16 @@ class Render_screen {
 		return this._shadow;
 	}
 
-	clear() {
-		this._mainscreen_ctx.clearRect(0, 0, this._mainscreen.width, this._mainscreen.height);
-		this._offscreen_ctx.clearRect(0, 0, this._offscreen.width, this._offscreen.height);
+	clear(rect) {
+		this._mainscreen_ctx.clearRect(rect.x, rect.y, rect.w, rect.h);
+		this._offscreen_ctx.clearRect(rect.x, rect.y, rect.w, rect.h);
 	}
 	
-	swap_buffer() {
+	swap_buffer(rect) {
 		this.draw_text_buffer();
-		this._mainscreen_ctx.clearRect(0, 0, this._mainscreen.width, this._mainscreen.height);
-		this._mainscreen_ctx.drawImage(this._offscreen, 0, 0);
-		this._offscreen_ctx.clearRect(0, 0, this._offscreen.width, this._offscreen.height);
+		this._mainscreen_ctx.clearRect(rect.x, rect.y, rect.w, rect.h);
+		this._mainscreen_ctx.drawImage(this._offscreen, rect.x, rect.y, rect.w, rect.h, rect.x, rect.y, rect.w, rect.h);
+		this._offscreen_ctx.clearRect(rect.x, rect.y, rect.w, rect.h);
 	}
 	
 	draw_shadow(ctx) {
@@ -154,11 +153,11 @@ class Render_screen {
 		ctx.shadowColor = '#000000';
 	}
 
-	draw_box(left, top, x, y, bg_color, stroke_color, stroke_thickness) {
+	draw_box(left, top, w, h, bg_color, stroke_color, stroke_thickness) {
 		var ctx = this._offscreen_ctx;
 		ctx.translate(0.5, 0.5);
 		ctx.beginPath();
-		ctx.rect(left, top, x, y);
+		ctx.rect(left, top, w, h);
 		ctx.fillStyle = bg_color;
 		this.draw_shadow(ctx);
 		ctx.fill();

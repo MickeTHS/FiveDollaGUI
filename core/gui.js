@@ -15,6 +15,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
  
  */
 
+var _global_gui_id = 0;
+
 var _gui_containers = [];
   
 var on_mouse_over = function(event, canvas) {
@@ -40,9 +42,34 @@ var on_mouse_move = function(event, canvas) {
 
     for (var i = 0; i < _gui_containers.length; ++i) {
         var g = _gui_containers[i];
-        g.mousemove(event.clientX, event.clientY);
+        var rect = g.canvas().getBoundingClientRect();
+
+        g.mousemove(event.clientX - rect.left, event.clientY - rect.top);
     }
 }
+
+var on_mouse_down = function(event, canvas) {
+    console.log('on mouse move');
+
+    for (var i = 0; i < _gui_containers.length; ++i) {
+        var g = _gui_containers[i];
+        var rect = g.canvas().getBoundingClientRect();
+
+        g.mousedown(event.clientX - rect.left, event.clientY - rect.top);
+    }
+}
+
+var on_mouse_up = function(event, canvas) {
+    console.log('on mouse move');
+
+    for (var i = 0; i < _gui_containers.length; ++i) {
+        var g = _gui_containers[i];
+        var rect = g.canvas().getBoundingClientRect();
+
+        g.mouseup(event.clientX - rect.left, event.clientY - rect.top);
+    }
+}
+
 
 setInterval(function(){
     for (var i = 0; i < _gui_containers.length; ++i) {
@@ -113,21 +140,22 @@ class GUI {
      * Creates a Render_screen
      * 
      * @param {id} canvas_id ID of the canvas element
+     * @param {number} quad_division default 8 will create a grid of 8x8 quads for optimization purposes
      */
-    constructor(canvas_id) {
+    constructor(canvas_id, quad_division = 8) {
         _gui_containers.push(this);
-        var canvas_elem = document.getElementById(canvas_id);
+        this._canvas_elem = document.getElementById(canvas_id);
 
-        this._width = canvas_elem.offsetWidth;
-        this._height = canvas_elem.offsetHeight;
+        this._width = this._canvas_elem.offsetWidth;
+        this._height = this._canvas_elem.offsetHeight;
 
         this._renderer = new Render_screen(canvas_id, this._width, this._height);
-
         
-        canvas_elem.setAttribute('onmouseover', 'on_mouse_over(event, this);');
-        canvas_elem.setAttribute('onmouseout', 'on_mouse_out(event, this);');
-        canvas_elem.setAttribute('onmousemove', 'on_mouse_move(event, this);');
-
+        this._canvas_elem.setAttribute('onmouseover', 'on_mouse_over(event, this);');
+        this._canvas_elem.setAttribute('onmouseout', 'on_mouse_out(event, this);');
+        this._canvas_elem.setAttribute('onmousemove', 'on_mouse_move(event, this);');
+        this._canvas_elem.setAttribute('onmousedown', 'on_mouse_down(event, this);');
+        this._canvas_elem.setAttribute('onmouseup', 'on_mouse_up(event, this);');
 
         console.log('gui size: ' + this._width + ', ' + this._height);
 
@@ -142,7 +170,60 @@ class GUI {
         this._locked = false;
         this._mouse_inside = false;
 
+        this._quads = {};
+        this._quad_division = quad_division;
+
+        this._selected_nodes = {};
+
+        this.generate_quads(quad_division);
+
         this.add_layer(this._layer);
+    }
+
+
+    canvas() {
+        return this._canvas_elem;
+    }
+
+    /**
+     * generates the optimizing quads
+     * 
+     * @param {number} cols 4 means 4x4 quads = 16
+     */
+    generate_quads(cols) {
+        this._quad_division = cols;
+        var x_mul = this._width / cols;
+        var y_mul = this._height / cols;
+
+        for (var i = 0; i < cols; ++i) {
+            for (var j = 0; j < cols; ++j) {
+                var id = j+':'+i;
+                this._quads[id] = new GUI_quad(this._renderer, {x: j * x_mul, y: i * y_mul, w: x_mul, h: y_mul}, id);
+                this._quads[id].set_bg_color(random_hex_color());
+            }
+        }
+    }
+
+    /**
+     * calculates which quads the node should go into
+     * 
+     * @param {GUI_node} gui_node the gui node to calculate which quad to add to
+     */
+    calc_quads_for_node(gui_node) {
+        var quads = {};
+
+        for (var k in this._quads) {
+            var res = this._quads[k].calc_node_inside(gui_node);
+            if (res == NODE_FULLY_INSIDE) {
+                quads[k] = this._quads[k];
+                return quads;
+            }
+            else if (res == NODE_PARTIALLY_INSIDE) {
+                quads[k] = this._quads[k];
+            }
+        }
+
+        return quads;
     }
 
     /**
@@ -157,8 +238,8 @@ class GUI {
      * @param {number} border border thickness
      * @param {number} border_color border color around the box
      */
-    create_box(x, y, width, height, caption = '', background_color = '#aaaaaa', border = 1, border_color = '#000') {
-        var g = new GUI_node(this._renderer);
+    create_box(x, y, width, height, caption = '', background_color = '#000', border = 1, border_color = '#fff') {
+        var g = new GUI_node(this._renderer, _global_gui_id++);
 
         g.set_pos(x, y);
         g.set_width(width);
@@ -167,8 +248,14 @@ class GUI {
         g.set_border_color(border_color);
         g.set_caption(caption);
         g.set_border_thickness(border);
+        
+        var q = this.calc_quads_for_node(g);
 
-        this._nodes[this._layer].push(g);
+        for (var k in q) {
+            q[k].add_node(g);
+        }
+
+        g.set_quad_ids(Object.keys(q));
 
         return g;
     }
@@ -186,7 +273,7 @@ class GUI {
      * @param {number} border_color border color around the circle
      */
     create_circle(x, y, radius, caption = '', background_color = '#aaaaaa', border = 0.5, border_color = '#000') {
-        var g = new GUI_node(this._renderer);
+        var g = new GUI_node(this._renderer, _global_gui_id++);
 
         g.set_shape('circle');
         g.set_pos(x, y);
@@ -196,7 +283,13 @@ class GUI {
         g.set_caption(caption);
         g.set_border_thickness(border);
 
-        this._nodes[this._layer].push(g);
+        var q = this.calc_quads_for_node(g);
+
+        for (var k in q) {
+            q.add_node(g);
+        }
+
+        g.set_quad_ids(Object.keys(q));
 
         return g;
     }
@@ -383,24 +476,49 @@ class GUI {
     }
 
     /**
+     * @param {number} x canvas x position
+     * @param {number} y canvas y position
+     * 
+     * @returns {GUI_grid} the quad at position
+     */
+    get_quad_at_pos(x, y) {
+        var x_mul = Math.round(this._width / this._quad_division);
+        var y_mul = Math.round(this._height / this._quad_division);
+
+        var q_x = Math.floor(x / x_mul);
+        var q_y = Math.floor(y / y_mul);
+
+        return this._quads[q_x+':'+q_y];
+    }
+
+    /**
      * Returns the GUI_node we can find at the given x and y coordinate
      * 
      * @param {number} x
      * @param {number} y
      * @returns {GUI_node} the GUI_node we found, null if nothing
      */
-    get_node_at_pos(x, y) {
-        for (var i = 0; i < this._nodes[this._layer].length; ++i) {
-            this._nodes[this._layer][i].set_selected(false);
-            
-            var n = this._nodes[this._layer][i].hit_test(x,y);
+    get_nodes_at_pos(x, y) {
 
-            if (n != null) {
-                return n;
-            }
+        var q = this.get_quad_at_pos(x, y);
+
+        if (q == null) { return null; }
+
+        var nodes = q.get_nodes_at_pos(x, y);
+
+        return nodes;
+    }
+
+    /**
+     * marks the GUI_node as changed which will redraw the quad(s) is belongs to
+     * 
+     * @param {GUI_node} gui_node the node to mark
+     */
+    mark_changed_node(gui_node) {
+        var ids = gui_node.quad_ids();
+        for (var i = 0; i < ids.length; ++i) {
+            this._quads[ids[i]].set_changed(true);
         }
-
-        return null;
     }
 
     /**
@@ -410,19 +528,21 @@ class GUI {
      * @param {number} y
      */
     select_nodes_at_pos(x, y) {
-        for (var i = 0; i < this._nodes[this._layer].length; ++i) {
-            this._nodes[this._layer][i].set_selected(false);
-        }
-        for (var i = 0; i < this._nodes[this._layer].length; ++i) {
-            
-            var n = this._nodes[this._layer][i].hit_test(x,y);
+        var nodes = this.get_nodes_at_pos(x, y);
 
-            if (n != null) {
-                n.set_selected(true);
-                n.set_mousepos(x,y);
-                break;
-            }
+        for (var i = 0; i < this._selected_nodes.length; ++i) {
+            this._selected_nodes[i].set_selected(false);
+            this.mark_changed_node(this._selected_nodes[i]);
         }
+
+        this._selected_nodes = [];
+
+        for (var k in nodes) {
+            this._selected_nodes.push(nodes[k]);
+            nodes[k].set_selected(true);
+            nodes[k].set_mousepos(x,y);
+        }
+
     }
 
     /**
@@ -432,6 +552,9 @@ class GUI {
      * @param {number} y 
      */
     mousedown(x, y) {
+        var q = this.get_quad_at_pos(x,y);
+        console.log(q.id());
+
         if (this.locked()) { return; }
         
         if (this._high_node != null) {
@@ -450,12 +573,6 @@ class GUI {
 
         this._high_node = node;
         this._high_node.set_highlighted(true);
-        
-
-        if (this._drag_node._on_click != 0) {
-            this._drag_node._on_click.call(this._drag_node.callback_obj());
-            //this._drag_node._on_click.call(this._drag_node.callback_obj(), this._drag_node().host_str(), this._drag_node.on_click_db_node());
-        }
     }
 
     /**
@@ -492,12 +609,19 @@ class GUI {
         }
     }
 
+    
     /**
      * @param {String} layer name of the layer to draw
      * @param {boolean} [swap=true] if we should swap buffer or not
      */
     draw(layer = 'default', swap = true) {
 
+        for (var k in this._quads) {
+            
+            this._quads[k].draw(layer, true);
+            
+        }
+/*
         //draw lines first
         for (var i = 0; i < this._lines[layer].length; ++i) {
             this._lines[layer][i].draw();
@@ -518,7 +642,7 @@ class GUI {
 
         if (swap) {
             this._renderer.swap_buffer();
-        }
+        }*/
     }
 
     /**

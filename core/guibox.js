@@ -23,10 +23,7 @@ class GUI_box {
     constructor(renderobj) {
         this._renderer       = renderobj;
         this._caption_color  = '#ffffff';
-        this._px             = 0;
-        this._py             = 0;
-        this._width          = 128;
-        this._height         = 128;
+        this._rect           = {x: 0, y: 0, w: 32, h: 32};
         this._caption        = '';
         this._nodes          = [];
         this._bg_color       = '#000000';
@@ -50,6 +47,8 @@ class GUI_box {
         this._static_color   = false;
     }
 
+    rect() { return this._rect; }
+
     set_static_color(st) { this._static_color = st; }
     static_color() { return this._static_color; }
 
@@ -70,10 +69,10 @@ class GUI_box {
 
     left_margin() { return this._left_margin; }
     nodes() { return this._nodes; }
-    x() { return this._px; }
-    y() { return this._py; }
-    width() { return this._width; }
-    height() { return this._height; }
+    x() { return this._rect.x; }
+    y() { return this._rect.y; }
+    width() { return this._rect.w; }
+    height() { return this._rect.h; }
     y_margin() { return this._y_margin; }
     caption() { return this._caption; }
     caption_color() { return this._caption_color; }
@@ -116,8 +115,8 @@ class GUI_box {
     }
 
     set_pos(x, y, dragged = false) {
-        this._px = x;
-        this._py = y;
+        this._rect.x = x;
+        this._rect.y = y;
 
         if (dragged) {
             this.calc_nodes_pos();
@@ -125,16 +124,16 @@ class GUI_box {
     }
 
     set_width(width) {
-        this._width = width;
+        this._rect.w = width;
     }
 
     set_height(height) {
-        this._height = height;
+        this._rect.h = height;
     }
 
     set_size(w, h) {
-        this._width = w;
-        this._height = h;
+        this._rect.w = w;
+        this._rect.h = h;
     }
 
     set_background_color(color) {
@@ -177,11 +176,11 @@ class GUI_box {
 
         y_offset += this._y_margin;
 
-        return this._height - y_offset;
+        return this._rect.h - y_offset;
     }
 
     content_width() {
-        return this._width;
+        return this._rect.w;
     }
 
     /**
@@ -225,7 +224,7 @@ class GUI_box {
      */
     calc_nodes_pos() {
         
-        var y = this._py;
+        var y = this._rect.y;
         var y_offset = 0;
         if (this._caption != '') {
             y_offset += 16;
@@ -237,11 +236,11 @@ class GUI_box {
 
         var x = 0;
         var rows = Math.ceil(this._nodes.length/this._cols);
-        var rh = (this._height-y_offset) / rows;
-        var cw = this._width / this._cols;
-        var add = (1.0 / (this._cols)) * this._width;
+        var rh = (this._rect.h-y_offset) / rows;
+        var cw = this._rect.w / this._cols;
+        var add = (1.0 / (this._cols)) * this._rect.w;
 
-        var ix = this._px + this._left_margin;
+        var ix = this._rect.x + this._left_margin;
         
 
         for (var i = 0; i < this._nodes.length; ++i) {
@@ -255,7 +254,7 @@ class GUI_box {
 
             if (i != 0 && (i+1) % this._cols == 0) {
                 y+=rh;
-                ix = this._px + this._left_margin;
+                ix = this._rect.x + this._left_margin;
             }
         }
     }
@@ -285,11 +284,11 @@ class GUI_box {
             bt = 6;
         }
 
-        this._renderer.draw_box(this._px, this._py, this._width, this._height, shaded_color, bc, bt);
+        this._renderer.draw_box(this._rect.x, this._rect.y, this._rect.w, this._rect.h, shaded_color, bc, bt);
 
         if (this._caption != '') {
             var w = this._renderer.calc_text_width(this._font_size + 'px ' + this._font, this._caption);
-            this._renderer.draw_text_color(this._px + this._width/2 - w/2, this._py + 20, this._font, this._font_size, this._caption_color, this._caption);
+            this._renderer.draw_text_color(this._rect.x + this._rect.w/2 - w/2, this._rect.y + 20, this._font, this._font_size, this._caption_color, this._caption);
         }
 
         var later = null;
@@ -332,10 +331,10 @@ class GUI_box {
 
         if (!this._hit_test) { return null; }
 
-        if (this._px > x) { return null; }
-        if (this._px + this._width < x) { return null; }
-        if (this._py + this._height < y) { return null; }
-        if (this._py > y) { return null; }
+        if (this._rect.x > x) { return null; }
+        if (this._rect.x + this._rect.w < x) { return null; }
+        if (this._rect.y + this._rect.h < y) { return null; }
+        if (this._rect.y > y) { return null; }
         
         return this;
     }
