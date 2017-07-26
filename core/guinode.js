@@ -125,6 +125,7 @@ class GUI_node
         this._abs_points     = [];
         this._anchor_point   = ap;
         this._visible        = true;
+        this._prev_state     = { x: 0, y: 0, w: 16, h: 16 };
 
 	}
 
@@ -156,6 +157,28 @@ class GUI_node
     set_quad_ids(ids) {
         this._quad_ids = ids;
     }
+
+    /**
+     * This is to keep track of the original dimensions of the node
+     * 
+     * @param {number} x
+     * @param {number} y
+     * @param {number} w
+     * @param {number} h
+     */
+    set_prev_state(x, y, w, h) {
+        this._prev_state.x = x;
+        this._prev_state.y = y;
+        this._prev_state.w = w;
+        this._prev_state.h = h;
+    }
+
+    /**
+     * Returns the dimensions from the last time we did set_zoom_helper
+     * 
+     * @returns {JSON} x, y, w, h
+     */
+    prev_state() { return this._prev_state; }
 
     recalculate() {
         
@@ -207,6 +230,7 @@ class GUI_node
         console.log('        : topleft rect: ' + JSON.stringify(this._topleft_rect));
         console.log('        : ap_border_rect (top left): ' + JSON.stringify(this.ap_border_rect(ANCHOR_TOPLEFT)));
         console.log('        : contained in : ' + JSON.stringify(this._quad_ids));
+        console.log('        : helper rect : ' + JSON.stringify(this._prev_state));
     }
 
     font() { return this._font; }
@@ -223,6 +247,7 @@ class GUI_node
 
     x() { return this.internal_get_rect().x; }
     y() { return this.internal_get_rect().y; }
+    pos() { return {x: this.x(), y: this.y() }; }
 
     autohidden_caption() { return this._text_autohide; }
     selected() { return this._selected; }
@@ -558,8 +583,8 @@ class GUI_node
 
         _drawcalls++;
 
-        if (_drawcalls % 1000 == 0) {
-            console.log('draw: ' + _drawcalls);
+        if (_drawcalls % 100000 == 0) {
+            //console.log('draw: ' + _drawcalls);
         }
 
         if (first && this._selected && this._text_autohide) {
@@ -588,6 +613,10 @@ class GUI_node
         }
 
         if (this._shape == 'square') {
+            if (_drawcalls % 10000 == 0) {
+                //this.print();
+            }
+
             this._renderer.draw_box(this._topleft_rect.x, this._topleft_rect.y, this._topleft_rect.w, this._topleft_rect.h, shaded_color, bc, bt);
         }
         else if (this._shape == 'circle') {

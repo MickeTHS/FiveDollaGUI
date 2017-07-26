@@ -1,4 +1,19 @@
-var _debug = false;
+/**
+ * Calculates the angle (in radians) between two vectors pointing outward from one center
+ *
+ * @param p0 first point
+ * @param p1 second point
+ * @param c center point
+ */
+var find_angle = function(p0, p1, c) {
+    var p0c = Math.sqrt(Math.pow(c.x-p0.x,2)+
+                        Math.pow(c.y-p0.y,2)); // p0->c (b)   
+    var p1c = Math.sqrt(Math.pow(c.x-p1.x,2)+
+                        Math.pow(c.y-p1.y,2)); // p1->c (a)
+    var p0p1 = Math.sqrt(Math.pow(p1.x-p0.x,2)+
+                         Math.pow(p1.y-p0.y,2)); // p0->p1 (c)
+    return Math.acos((p1c*p1c+p0c*p0c-p0p1*p0p1)/(2*p1c*p0c));
+}
 
 /**
  * Checks if a point is inside a polygon
@@ -19,19 +34,7 @@ var p_poly = function(vertices, testx, testy) {
  * checks if rect_a fully contains rect_b
  */
 var a_rect_contains_b = function(rect_a, rect_b) {
-    if (_debug) {
-        if ((rect_b.x + rect_b.w) < (rect_a.x + rect_a.w))
-            console.log('ok1');
-        if ( (rect_b.x) > (rect_a.x))
-            console.log('ok2');
-        if ((rect_b.y) > (rect_a.y))
-            console.log('ok3');
-        if ( (rect_b.y+rect_b.h) < (rect_a.y+rect_a.h) ) 
-            console.log('ok4');
     
-    }
-    
-
     if ((rect_b.x + rect_b.w) < (rect_a.x + rect_a.w)
         && (rect_b.x) > (rect_a.x)
         && (rect_b.y) < (rect_a.y)

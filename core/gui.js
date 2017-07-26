@@ -217,8 +217,10 @@ class GUI {
         
 
         this._canvas_elem.addEventListener('mousewheel', function(e) {
-            console.log('wheel', e)
-        }, false);
+            var delta = Math.max(-1, Math.min(1, (e.wheelDelta || -e.detail)));
+            
+            this.wheel(delta);
+        }.bind(this), false);
     
         console.log('gui size: ' + this._width + ', ' + this._height);
 
@@ -232,11 +234,15 @@ class GUI {
         this._layer = 'default';
         this._locked = false;
         this._mouse_inside = false;
+        this._zoom_factor = 1.0;
+        this._center = {x: this._width / 2, y: this._height / 2};
 
         this._quads = {};
         this._quad_division = quad_division;
 
         this._selected_nodes = {};
+        this._prev_center = {x: 0, y: 0};
+        this._force_draw = false;
 
         this.generate_quads(quad_division);
 
@@ -341,6 +347,8 @@ class GUI {
         g.set_caption(caption);
         g.set_border_thickness(border);
         g.recalculate();
+        g.set_prev_state(x, y, width, height);
+        this._nodes[g.id()] = g;
 
         //g.print();
         
@@ -457,6 +465,114 @@ class GUI {
     }
 
     /**
+     * Sets the zoom factor centered on the given absolute coordinate in canvas space
+     * 
+     * Forces a full redraw of the GUI
+     * 
+     * @param {number} center_x the center x point to zoom on
+     * @param {number} center_y the center y point to zoom on
+     * @param {number} factor sets the zoom factor, 1.0 is no zoom
+     */
+    set_zoom(center_x, center_y, factor) {
+        this._zoom_factor = factor;
+        this._center = {x: center_x, y: center_y};
+
+
+        console.log('zoomed, pos: ' + center_x + ', ' + center_y + ' factor: ' + this._zoom_factor);
+
+        // remove all nodes from each quad
+        for (var k in this._quads) {
+            this._quads[k].clear_nodes();
+        }
+
+        // reposition the nodes
+        for (var nk in this._nodes) {
+            var node = this._nodes[nk];
+            if (node == null) {
+                console.log('null node, how?');
+                continue;
+            }
+            
+            try {
+                var pos = node.pos();
+                var help = node.prev_state();
+                node.set_width(help.w * factor);
+                node.set_height(help.h * factor);
+                node.set_pos((help.x * factor) - center_x, (help.y * factor) - center_y) ;
+
+                var calced_qs = this.calc_quads_for_node(node);
+
+                for (var cck in calced_qs) {
+                    calced_qs[cck].add_node(node);
+                }
+
+                node.set_quad_ids(Object.keys(calced_qs));
+                
+            } catch (ex) {
+                console.log('exception: ' + node.id() + ':' + ex)
+            }
+            
+        }
+
+        // mark all quads as changed
+        for (var k in this._quads) {
+            this._quads[k].set_changed(true);
+        }
+
+        this._prev_center = this._center;
+        this._force_draw = true;
+    
+    }
+
+    /**
+     * Sets the center of the GUI
+     * 
+     * Forces a full redraw of the GUI
+     * 
+     * @param {number} x center on x
+     * @param {number} y center on y
+     */
+    set_center(x, y) {
+        this._center = {x: x, y: y};
+
+        var delta_x = this._center.x - this._prev_center.x;
+        var delta_y = this._center.y - this._prev_center.y;
+
+        console.log('setting center: ' + delta_x + ' ' + delta_y);
+
+        
+        var debug = 0;
+
+        // remove all nodes from each quad
+        for (var k in this._quads) {
+            this._quads[k].clear_nodes();
+        }
+
+        // reposition the nodes
+        for (var nk in this._nodes) {
+            var node = this._nodes[nk];
+            var pos = node.pos();
+            node.set_pos(pos.x + delta_x, pos.y + delta_y);
+
+            var calced_qs = this.calc_quads_for_node(node);
+
+            for (var cck in calced_qs) {
+                calced_qs[cck].add_node(node);
+            }
+
+            node.set_quad_ids(Object.keys(calced_qs));
+        }
+
+        // mark all quads as changed
+        for (var k in this._quads) {
+            this._quads[k].set_changed(true);
+        }
+
+        this._prev_center = this._center;
+        this._force_draw = true;
+    }
+
+    /**
      * @returns {boolean} if mouse is inside the GUI canvas
      */
     is_mouse_inside() {
@@ -469,7 +585,7 @@ class GUI {
      * @param {String} layer name of the layer
      */
     add_layer(layer) {
-        this._nodes[layer] = [];
+        //this._nodes[layer] = [];
         this._lines[layer] = [];
     }
 
@@ -503,13 +619,13 @@ class GUI {
      * 
      * @param {Array} container the GUI nodes will be stored inside
      */
-    fetch_all_gui_nodes(container) {
+    /*fetch_all_gui_nodes(container) {
         for (var i = 0; i < this._nodes[this._layer].length; ++i) {
             this._nodes[this._layer][i].fetch_gui_children(container);
 
             container.push(this._nodes[this._layer][i]);
         }
-    }
+    }*/
 
     /**
      * adds an icon for internal lookup, must be called before attempting to draw the icon
@@ -532,18 +648,18 @@ class GUI {
     /**
      * removes everything from the active layer
      */
-    clear_layer() {
+    /*clear_layer() {
         this._nodes[this._layer] = [];
         this._lines[this._layer] = [];
-    }
+    }*/
 
     /**
-     * Gets all the GUI nodes in the active layer
+     * Gets all the GUI nodes
      * 
      * @returns {Array<GUI_node>} array of GUI_nodes 
      */
     nodes() {
-        return this._nodes[this._layer];
+        return this._nodes;
     }
 
     /**
@@ -552,7 +668,7 @@ class GUI {
      * @param {GUI_node} node GUI_node to add
      */
     add_node(node) {
-        this._nodes[this._layer].push(node);
+        this._nodes.push(node);
     }
 
     /**
@@ -571,11 +687,11 @@ class GUI {
      * @param {GUI_node} node2 second node
      */
     connect(node1, node2) {
-        var line = new GUI_line_2_node(this._renderer);
+        /*var line = new GUI_line_2_node(this._renderer);
         line.add_node(node1);
         line.add_node(node2);
 
-        this._lines[this._layer].push(line);
+        this._lines.push(line);*/
     }
 
     /**
@@ -714,6 +830,15 @@ class GUI {
      */
     wheel(delta) {
         console.log('delta: ' + delta);
+        
+        if (delta < 0) {
+            // zoom out
+            this.set_zoom(0, 0, 1.0);
+        }
+        else if (delta > 0) {
+            this.set_zoom(this.width(), this.height(), 4.0);
+        }
+
     }
 
     /**
@@ -810,11 +935,18 @@ class GUI {
      */
     draw(layer = 'default', swap = true) {
 
+        var was_forced = false;
         for (var k in this._quads) {
             
-            this._quads[k].draw(layer, true);
-            
+            if (this._quads[k].draw(layer, true, this._force_draw)) {
+                was_forced = true;
+            }            
         }
+
+        if (was_forced) {
+            this._force_draw = false;
+        }
+        
 /*
         //draw lines first
         for (var i = 0; i < this._lines[layer].length; ++i) {

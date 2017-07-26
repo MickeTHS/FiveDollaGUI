@@ -84,6 +84,12 @@ class GUI_quad {
         return NODE_NOT_INSIDE;
     }
 
+    clear_nodes(layer = 'default') {
+        if (!this._layers.hasOwnProperty(layer)) {
+            this._layers[layer] = {};
+        }
+    }
+
     /**
      * Add GUI_node to the quad
      * 
@@ -155,8 +161,8 @@ class GUI_quad {
      * @param {String} layer layer identifier
      * @param {boolean} swap if we should swap buffer (false means you make another later drawcall)
      */
-    draw(layer = 'default', swap = true) {
-        if (!this.is_changed()) {
+    draw(layer = 'default', swap = true, force_draw = false) {
+        if (!force_draw && !this.is_changed()) {
             return;
         }
 
@@ -173,6 +179,8 @@ class GUI_quad {
         //console.log('x:' + this._rect.x +' y:'+ this._rect.y  + ' w:' + this._rect.w +' h:'+  this._rect.h);
         // swap the buffer for the rect
         this._renderer.swap_buffer(this._rect);
+
+        return force_draw;
     }
 
     print() {
