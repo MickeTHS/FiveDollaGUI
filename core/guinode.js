@@ -85,10 +85,11 @@ var _drawcalls = 0;
 
 class GUI_node 
 {
-    constructor(renderobj, id) {
+    constructor(renderobj, id, ap) {
 		this._radius         = 8;
         
-        this._rect           = { x: 0, y: 0, w: 16, h: 16 };
+        this._center_rect    = { x: 0, y: 0, w: 16, h: 16 };
+        this._topleft_rect   = { x: 0, y: 0, w: 16, h: 16 };
 
         this._renderer       = renderobj;
         this._selected       = false;
@@ -119,21 +120,93 @@ class GUI_node
         this._static_color   = false;
         this._id             = id;
         this._quad_ids       = [];
+        this._highlight_color = '#44aa44';
+        this._points         = [];
+        this._abs_points     = [];
+        this._anchor_point   = ap;
+        this._visible        = true;
+
 	}
+
+    /**
+     * Sets the visibility of the node. 
+     * 
+     * @param {boolean} visible true to visible, false to hidden
+     */
+    set_visible(visible) {
+        this._visible = visible;
+    }
+
+    /**
+     * @returns {boolean} visibility
+     */
+    visible() {
+        return this._visible;
+    }
+
+    anchor_point() { return this._anchor_point; }
+
+    /**
+     * should we recalculate the positions?
+     */
+    set_anchor_point(ap) {
+        this._anchor_point = ap;
+    }
 
     set_quad_ids(ids) {
         this._quad_ids = ids;
     }
 
+    recalculate() {
+        
+    }
+
     quad_ids() { return this._quad_ids; }
 
-    set_rect(rect) { this._rect = rect; }
-    rect() { return this._rect; }
+    set_rect(rect) { 
+        if (this._anchor_point == ANCHOR_CENTER) {
+            this._center_rect = rect; 
+            this._topleft_rect = rect_center_to_topleft(this._center_rect);
+        }
+        else {
+            this._topleft_rect = rect; 
+            this._center_rect = rect_topleft_to_center(this._topleft_rect);
+        }
+        
+    }
+
+    rect() { 
+        return this.internal_get_rect();
+    }
+
+    rect_with_border() { 
+        var r = this.internal_get_rect();
+        
+        return {x: r.x - this._border_thickness, y: r.y - this._border_thickness, w: r.w + this._border_thickness, h: r.h + this._border_thickness }; 
+    }
+
+    ap_border_rect(ap) {
+        var r = 0;
+        if (ap == ANCHOR_CENTER) {
+            r = this._center_rect;
+        }
+        else {
+            r = this._topleft_rect;
+        }
+
+        return {x: r.x - this._border_thickness, y: r.y - this._border_thickness, w: r.w + this._border_thickness*2, h: r.h + this._border_thickness*2 }; 
+    }
+
     id() { return this._id; }
     set_static_color(st) { this._static_color = st; }
     static_color() { return this._static_color; }
     print() {
-        console.log('GUI_node: ' + this._caption);
+        console.log('GUI_node: ' + this._caption)
+        console.log('        : center rect: ' + JSON.stringify(this._center_rect));
+        console.log('        : ap_border_rect (center): ' + JSON.stringify(this.ap_border_rect(ANCHOR_CENTER)));
+        console.log('        : topleft rect: ' + JSON.stringify(this._topleft_rect));
+        console.log('        : ap_border_rect (top left): ' + JSON.stringify(this.ap_border_rect(ANCHOR_TOPLEFT)));
+        console.log('        : contained in : ' + JSON.stringify(this._quad_ids));
     }
 
     font() { return this._font; }
@@ -141,16 +214,23 @@ class GUI_node
 
     icon_offset() { return [this._icon_x_offset, this._icon_y_offset]; }
 
-    x() { return this._rect.x; }
-    y() { return this._rect.y; }
+    internal_get_rect() {
+        return this._anchor_point == ANCHOR_CENTER ? this._center_rect : this._topleft_rect;
+    }
+
+    topleft_rect() { return this._topleft_rect; }
+    center_rect() { return this._center_rect; }
+
+    x() { return this.internal_get_rect().x; }
+    y() { return this.internal_get_rect().y; }
 
     autohidden_caption() { return this._text_autohide; }
     selected() { return this._selected; }
     caption_color() { return this._text_color; }
     caption() { return this._caption; }
     
-    width() { return this._rect.w; }
-    height() { return this._rect.h; }
+    width() { return this.internal_get_rect().w; }
+    height() { return this.internal_get_rect().h; }
     
     radius() { return this._radius; }
     
@@ -211,6 +291,28 @@ class GUI_node
      */
     set_hit_test(test) {
         this._hit_test = test;
+    }
+
+    /**
+     * sets the points of the polygon relative to x() and y()
+     * 
+     * @param {Array<JSON>} points in polygon
+     */
+    set_points(points) {
+        this._points = points;
+        this.create_abs_points();
+    }
+
+    /**
+     * makes an array of absolute coordinates so we dont have to calculate this every draw call
+     * 
+     */
+    create_abs_points() {
+        var r = this._center_rect;
+
+        for (var i = 0; i < this._points.length; ++i) {
+            this._abs_points.push({ x: r.x + this._points[i].x, y: r.y + this._points[i].y });
+        }
     }
 
     /**
@@ -324,8 +426,11 @@ class GUI_node
      * @param {number} y
      */
     set_pos(x, y) {
-        this._rect.x = x;
-        this._rect.y = y;
+        var r = this.internal_get_rect();
+        r.x = x;
+        r.y = y;
+
+        this.set_rect(r);
     }
 
     
@@ -334,9 +439,14 @@ class GUI_node
      * @param {number} radius 
      */
     set_radius(radius) {
-        this._rect.w = radius*2.0;
-        this._rect.h = radius*2.0;
+        var r = this.internal_get_rect();
+
+        r.w = radius*2.0;
+        r.h = radius*2.0;
+
         this._radius = radius;
+
+        this.set_rect(r);
     }
 
     /**
@@ -345,7 +455,11 @@ class GUI_node
      * @param {number} height
      */
     set_height(height) {
-        this._rect.h = height;
+        var r = this.internal_get_rect();
+
+        r.h = height;
+
+        this.set_rect(r);
     }
 
     /**
@@ -354,7 +468,11 @@ class GUI_node
      * @param {number} width
      */
     set_width(width) {
-        this._rect.w = width;
+        var r = this.internal_get_rect();
+        
+        r.w = width;
+
+        this.set_rect(r);
     }
 
 
@@ -375,7 +493,11 @@ class GUI_node
      * @param {number} margin
      */
     calculate_width_from_caption(margin) {
-        this._rect.w = this._renderer.calc_text_width(this._font_size+'px Bitstream Vera Sans Mono', this._caption) + margin * 2;
+        var r = this.internal_get_rect();
+
+        r.w = this._renderer.calc_text_width(this._font_size+'px Bitstream Vera Sans Mono', this._caption) + margin * 2;
+
+        this.set_rect(r);
     }
 
     /**
@@ -430,6 +552,10 @@ class GUI_node
      * @returns {GUI_node} if we didnt draw it, we return it, else null
      */
     draw(first = true) {
+        if (!this.visible()) {
+            return;
+        }
+
         _drawcalls++;
 
         if (_drawcalls % 1000 == 0) {
@@ -440,13 +566,15 @@ class GUI_node
             return this;
         }
 
-        var w = this._rect.w;
+        var calc_rect = this.internal_get_rect();
+
+        var w = calc_rect.w;
         var bc = this._border_color;
         var bt = this._border_thickness;
 
         if (this._highlighted) {
-            bc = '#0088cc';
-            bt = 6;
+            bc = this._highlight_color;
+            bt = 2;
         }
 
         if (this._caption != '') {
@@ -460,13 +588,17 @@ class GUI_node
         }
 
         if (this._shape == 'square') {
-            this._renderer.draw_box(this._rect.x, this._rect.y, this._rect.w, this._rect.h, shaded_color, bc, bt);
+            this._renderer.draw_box(this._topleft_rect.x, this._topleft_rect.y, this._topleft_rect.w, this._topleft_rect.h, shaded_color, bc, bt);
         }
         else if (this._shape == 'circle') {
-            this._renderer.draw_circle(this._rect.x, this._rect.y, this._radius, bt, shaded_color, bc);
+            this._renderer.draw_circle(this._center_rect.x, this._center_rect.y, this._radius, bt, shaded_color, bc);
         }
         else if (this._shape == 'triangle') {
-             this._renderer.draw_triangle(this._rect.x, this._rect.y, this._rect.w, bt, shaded_color, bc);
+            this._renderer.draw_triangle(this._topleft_rect.x, this._topleft_rect.y, this._topleft_rect.w, bt, shaded_color, bc);
+        }
+        else if (this._shape == 'polygon') {
+            // we always draw it using abs_points, which has already been calculated (hopefully)
+            this._renderer.draw_fill_points(this._abs_points, bt, shaded_color, bc);
         }
 
         
@@ -483,22 +615,22 @@ class GUI_node
             else {
                 var cs = this._renderer.contrast(shaded_color);
 
-                this._renderer.draw_text_color(this._rect.x + this._rect.w/2 - w/2, this._rect.y + this._rect.h/2 + 4, this._font, this._font_size, cs, this._caption);
+                this._renderer.draw_text_color(calc_rect.x + calc_rect.w/2 - w/2, calc_rect.y + calc_rect.h/2 + 4, this._font, this._font_size, cs, this._caption);
             }
         }
 
         var mc = this._indicator_color;
 
         if (mc != null) {
-            this._renderer.draw_fill_path([this._rect.x, this._rect.y], [this._rect.x + 10, this._rect.y], [this._rect.x, this._rect.y + 10], 1.0, mc, '#ffffff');
+            this._renderer.draw_fill_path([calc_rect.x, calc_rect.y], [calc_rect.x + 10, calc_rect.y], [calc_rect.x, calc_rect.y + 10], 1.0, mc, '#ffffff');
         }
 
-        var add = (1.0 / (this._icons.length + 1)) * this._rect.w;
-        var ix = this._rect.x - this._rect.w/2;
-        var iy = this._rect.y - this._font_size+1;
+        var add = (1.0 / (this._icons.length + 1)) * calc_rect.w;
+        var ix = calc_rect.x - calc_rect.w/2;
+        var iy = calc_rect.y - this._font_size+1;
 
         if (this._caption == '') {
-            iy = this._rect.y;
+            iy = calc_rect.y;
         }
         
         ix += this._icon_x_offset;
@@ -527,23 +659,31 @@ class GUI_node
         
         if (!this._hit_test) { return null; }
 
+        var calc_rect = 0;
+
         var test = false;
 
         if (this._shape == 'circle') {
-            test = (x - this._rect.x)*(x - this._rect.x) + (y - this._rect.y)*(y - this._rect.y) < this._radius*this._radius;
+            calc_rect = this._center_rect;
+            test = (x - calc_rect.x)*(x - calc_rect.x) + (y - calc_rect.y)*(y - calc_rect.y) < this._radius*this._radius;
         }
-        else if (this._shape == 'square') {
-            
-            if (this._rect.x > x) { test = false; }
-            else if (this._rect.x + this._rect.w < x) { test = false; }
-            else if (this._rect.y + this._rect.h < y) { test = false; }
-            else if (this._rect.y > y) { test = false; }
+        else if (this._shape == 'polygon') {
+            test = p_poly(this._abs_points, x, y);
+        }
+        else if (this._shape == 'square') { // for now we calculate based on the BB for the polygon, TODO: actual polygon test
+            calc_rect = this._topleft_rect;
+            if (calc_rect.x > x) { test = false; }
+            else if (calc_rect.x + calc_rect.w < x) { test = false; }
+            else if (calc_rect.y + calc_rect.h < y) { test = false; }
+            else if (calc_rect.y > y) { test = false; }
             else { test = true; }
             
         }
         else if (this._shape == 'triangle') {
-            test = point_in_triangle(x, y, this._rect.x - this._rect.w/2, this._rect.y + this._rect.h/2, this._rect.x + this._rect.w/2, this._rect.y + this._rect.h/2, this._rect.x, this._rect.y - this._rect.h/2);
+            calc_rect = this._topleft_rect;
+            test = point_in_triangle(x, y, calc_rect.x - calc_rect.w/2, calc_rect.y + calc_rect.h/2, calc_rect.x + calc_rect.w/2, calc_rect.y + calc_rect.h/2, calc_rect.x, calc_rect.y - calc_rect.h/2);
         }
+        
         
         if (test) { return this; }
         return null;

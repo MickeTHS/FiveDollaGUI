@@ -45,6 +45,7 @@ class GUI_box {
         this._font_size      = 14;
         this._font           = 'Bitstream2';
         this._static_color   = false;
+        this._highlight_color = '#44aa44';
     }
 
     rect() { return this._rect; }
@@ -280,8 +281,8 @@ class GUI_box {
         var bt = this._border_thickness;
 
         if (this._highlighted) {
-            bc = '#0088cc';
-            bt = 6;
+            bc = this._highlight_color;
+            bt = 2;
         }
 
         this._renderer.draw_box(this._rect.x, this._rect.y, this._rect.w, this._rect.h, shaded_color, bc, bt);

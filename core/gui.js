@@ -15,6 +15,10 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
  
  */
 
+const ANCHOR_TOPLEFT    = 1;
+const ANCHOR_CENTER     = 2;
+
+
 var _global_gui_id = 0;
 
 var _gui_containers = [];
@@ -70,6 +74,28 @@ var on_mouse_up = function(event, canvas) {
     }
 }
 
+
+var on_mouse_wheel = function (e, canvas) {
+    for (var i = 0; i < _gui_containers.length; ++i) {
+        if (canvas == _gui_containers[i].canvas()) {
+            var delta = Math.max(-1, Math.min   (1, (e.wheelDelta || -e.detail)));
+            
+            g.wheel(delta);
+        }
+    }
+}
+
+function is_event_supported(eventName) {
+    var el = document.createElement('div');
+    eventName = 'on' + eventName;
+    var isSupported = (eventName in el);
+    if (!isSupported) {
+        el.setAttribute(eventName, 'return;');
+        isSupported = typeof el[eventName] == 'function';
+    }
+    el = null;
+    return isSupported;
+}
 
 setInterval(function(){
     for (var i = 0; i < _gui_containers.length; ++i) {
@@ -142,8 +168,10 @@ class GUI {
      * @param {id} canvas_id ID of the canvas element
      * @param {number} quad_division default 8 will create a grid of 8x8 quads for optimization purposes
      */
-    constructor(canvas_id, quad_division = 8) {
+    constructor(canvas_id, anchor_point = ANCHOR_CENTER, quad_division = 8) {
         _gui_containers.push(this);
+        this._anchor_point = anchor_point;
+
         this._canvas_elem = document.getElementById(canvas_id);
 
         this._width = this._canvas_elem.offsetWidth;
@@ -151,12 +179,47 @@ class GUI {
 
         this._renderer = new Render_screen(canvas_id, this._width, this._height);
         
+    
         this._canvas_elem.setAttribute('onmouseover', 'on_mouse_over(event, this);');
         this._canvas_elem.setAttribute('onmouseout', 'on_mouse_out(event, this);');
         this._canvas_elem.setAttribute('onmousemove', 'on_mouse_move(event, this);');
         this._canvas_elem.setAttribute('onmousedown', 'on_mouse_down(event, this);');
         this._canvas_elem.setAttribute('onmouseup', 'on_mouse_up(event, this);');
+        
+        
+        // when document is finished loading
+        document.addEventListener('DOMContentLoaded', function(){
+            
+            var htmls = document.getElementsByTagName('html');
+            var bodys = document.getElementsByTagName('body');
+            
+            if (htmls.length == 0) {
+                console.error('num <html> tags is 0, critical error');
+            }
 
+            if (bodys.length == 0) {
+                console.error('num <body> tags is 0, critical error');
+            }
+
+            for (var i = 0; i < htmls.length; ++i) {
+                htmls[i].style.height= "100%";
+                htmls[i].style.overflow= "hidden";
+                console.log('setting html style');
+            }
+
+            for (var i = 0; i < bodys.length; ++i) {
+                bodys[i].style.height= "100%";
+                bodys[i].style.overflow= "hidden";
+            }
+
+        }, false);
+
+        
+
+        this._canvas_elem.addEventListener('mousewheel', function(e) {
+            console.log('wheel', e)
+        }, false);
+    
         console.log('gui size: ' + this._width + ', ' + this._height);
 
         this._dragging = false;
@@ -178,8 +241,28 @@ class GUI {
         this.generate_quads(quad_division);
 
         this.add_layer(this._layer);
+
+        this._events = {}
+        this._events['click'] = [];
+        this._events['node_selected'] = [];
+        this._events['node_highlighted'] = [];
+        this._events['node_deselected'] = [];
+        
     }
 
+    init() {
+
+    }
+
+    /**
+     * register event listeners on the gui
+     * 
+     * @param {String} event_str 'click', 'node_selected', 'node_deselected'
+     * @param {Callback} callback the callback to be called
+     */
+    on(event_str, callback) {
+        this._events[event_str].push(callback);
+    }
 
     canvas() {
         return this._canvas_elem;
@@ -195,11 +278,14 @@ class GUI {
         var x_mul = this._width / cols;
         var y_mul = this._height / cols;
 
+        console.log('x_mul: ' + x_mul + ', y_mul: ' + y_mul);
+
         for (var i = 0; i < cols; ++i) {
             for (var j = 0; j < cols; ++j) {
                 var id = j+':'+i;
                 this._quads[id] = new GUI_quad(this._renderer, {x: j * x_mul, y: i * y_mul, w: x_mul, h: y_mul}, id);
-                this._quads[id].set_bg_color(random_hex_color());
+                //this._quads[id].set_bg_color(random_hex_color());
+                this._quads[id].set_bg_color('#000');
             }
         }
     }
@@ -215,10 +301,16 @@ class GUI {
         for (var k in this._quads) {
             var res = this._quads[k].calc_node_inside(gui_node);
             if (res == NODE_FULLY_INSIDE) {
+                if (gui_node.id() == '866') {
+                    console.log('FULLY INSIDE!');
+                }
                 quads[k] = this._quads[k];
                 return quads;
             }
             else if (res == NODE_PARTIALLY_INSIDE) {
+                if (gui_node.id() == '866') {
+                    console.log('PARTIALLY INSIDE');
+                }
                 quads[k] = this._quads[k];
             }
         }
@@ -239,11 +331,59 @@ class GUI {
      * @param {number} border_color border color around the box
      */
     create_box(x, y, width, height, caption = '', background_color = '#000', border = 1, border_color = '#fff') {
-        var g = new GUI_node(this._renderer, _global_gui_id++);
+        var g = new GUI_node(this._renderer, _global_gui_id++, this._anchor_point);
 
         g.set_pos(x, y);
         g.set_width(width);
         g.set_height(height);
+        g.set_background_color(background_color);
+        g.set_border_color(border_color);
+        g.set_caption(caption);
+        g.set_border_thickness(border);
+        g.recalculate();
+
+        //g.print();
+        
+        var q = this.calc_quads_for_node(g);
+
+        for (var k in q) {
+            q[k].add_node(g);
+        }
+
+        g.set_quad_ids(Object.keys(q));
+
+        return g;
+    }
+
+    /**
+     * Creates and returns a new polygon
+     * 
+     * @param {number} x x position in canvas
+     * @param {number} y y position in canvas
+     * @param {Array<JSON>} points points relative to x and y
+     * @param {String} caption text to show in the box
+     * @param {String} background_color background color
+     * @param {number} border border thickness
+     * @param {number} border_color border color around the box
+     */
+    create_polygon(x, y, points, caption = '', background_color = '#000', border = 1, border_color = '#fff') {
+        var g = new GUI_node(this._renderer, _global_gui_id++, this._anchor_point);
+
+        var min_x = min_arr(points, 'x');
+        var max_x = max_arr(points, 'x');
+        var min_y = min_arr(points, 'y');
+        var max_y = max_arr(points, 'y');
+
+        var width = max_x - min_x; 
+        var height = max_y - min_y;
+
+        console.log('p width: ' + width + ' p height: ' + height);
+
+        g.set_shape('polygon');
+        g.set_pos(x, y);
+        g.set_width(width);
+        g.set_height(height);
+        g.set_points(points); // we must call set points AFTER set_pos
         g.set_background_color(background_color);
         g.set_border_color(border_color);
         g.set_caption(caption);
@@ -260,6 +400,28 @@ class GUI {
         return g;
     }
 
+    get_quad_with_id(id) {
+        if (id in this._quads) {
+            return this._quads[id];
+        }
+
+        return null;
+    }
+
+    get_node_with_id(id) {
+        for (var k in this._quads) {
+            var n = this._quads[k].get_node_with_id(id);
+
+            if (n != null) {
+                return n;
+            }
+        }
+
+        return null;
+    }
+
+    //draw_fill_points
+
     /**
      * Creates and returns a new circle
      * x and y represents the middle of the circle
@@ -273,7 +435,7 @@ class GUI {
      * @param {number} border_color border color around the circle
      */
     create_circle(x, y, radius, caption = '', background_color = '#aaaaaa', border = 0.5, border_color = '#000') {
-        var g = new GUI_node(this._renderer, _global_gui_id++);
+        var g = new GUI_node(this._renderer, _global_gui_id++, this._anchor_point);
 
         g.set_shape('circle');
         g.set_pos(x, y);
@@ -546,12 +708,25 @@ class GUI {
     }
 
     /**
+     * When the mouse wheel has been activated on the canvas 
+     * 
+     * @param {number} delta the delta value of the wheel
+     */
+    wheel(delta) {
+        console.log('delta: ' + delta);
+    }
+
+    /**
      * When a mousebutton has been pushed, this function should be called so the GUI can interact with it
      * 
      * @param {number} x 
      * @param {number} y 
      */
     mousedown(x, y) {
+        for (var i = 0; i < this._events['click'].length; ++i) {
+            this._events['click'][i](x, y);
+        }
+
         var q = this.get_quad_at_pos(x,y);
         console.log(q.id());
 
@@ -559,20 +734,39 @@ class GUI {
         
         if (this._high_node != null) {
             this._high_node.set_highlighted(false);
+            this.mark_changed_node(this._high_node);
         }
 
-        var node = this.get_node_at_pos(x,y);
+        var nodes = this.get_nodes_at_pos(x,y);
 
-        if (node == null) {
+        if (nodes.length == 0) {
             return;
         }
 
         this._dragging = true;
-        this._drag_node = node;
-        this._drag_node.set_selected(true);
-
-        this._high_node = node;
-        this._high_node.set_highlighted(true);
+        this._drag_node = nodes[Object.keys(nodes)[0]];
+        
+        /* dragging and selection functionality */
+        if (this._drag_node != null) {
+            this._drag_node.set_selected(true);
+            this.mark_changed_node(this._drag_node);
+        
+            for (var i = 0; i < this._events['node_selected'].length; ++i) {
+                this._events['node_selected'][i](this._drag_node);
+            }
+        }
+        
+        /* node highlight when mouse over */
+        this._high_node = nodes[Object.keys(nodes)[0]];
+        
+        if (this._high_node != null) {
+            this._high_node.set_highlighted(true);
+            this.mark_changed_node(this._high_node);
+            
+            for (var i = 0; i < this._events['node_highlighted'].length; ++i) {
+                this._events['node_highlighted'][i](this._high_node);
+            }
+        }        
     }
 
     /**

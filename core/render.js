@@ -300,14 +300,14 @@ class Render_screen {
 	 * 
 	 * @deprecated
 	 * 
-	 * @param {int} x middle x
-	 * @param {int} y middle y
-	 * @param {float} radius
-	 * @param {int} stroke_width
+	 * @param {number} x middle x
+	 * @param {number} y middle y
+	 * @param {number} radius
+	 * @param {number} stroke_width
 	 * @param {String} inner_color RGB hexcolor
 	 * @param {String} stroke_color RGB hexcolor
 	 * @param {String} text 
-	 * @param {int} font_size
+	 * @param {number} font_size
 	 */
 	draw_circle_caption(x, y, radius, stroke_width, inner_color, stroke_color, text, font, font_size = 16) {
 		var ctx = this._offscreen_ctx;
@@ -324,6 +324,55 @@ class Render_screen {
 		return ctx.measureText(text).width;
 	}
 	
+	/**
+	 * draws a polygon
+	 *
+	 * @param {Array<JSON>} points [{x:x, y:y}, ...]
+	 * @param {number} stroke_width
+	 * @param {String} inner_color RGB hexcolor
+	 * @param {String} stroke_color RGB hexcolor
+	 * @param {String} text 
+	 * @param {number} font_size
+	 * 
+	 */
+	draw_fill_points(points, stroke_width, inner_color, stroke_color) {
+		if (points.length < 3) {
+			return false;
+		}
+
+		var ctx = this._offscreen_ctx;
+		ctx.translate(0.5, 0.5);
+		ctx.beginPath();
+		ctx.moveTo(points[0].x, points[0].y);
+		
+		for (var i = 1; i < points.length; ++i) {
+			ctx.lineTo(points[i].x, points[i].y);
+		}
+
+		ctx.lineTo(points[0].x, points[0].y);
+		
+		ctx.fillStyle = inner_color;
+		ctx.fill();
+		ctx.lineWidth = stroke_width;
+		ctx.strokeStyle = stroke_color;
+		ctx.stroke();
+		ctx.translate(-0.5, -0.5);
+	}
+
+
+	/**
+	 * draws a triangle
+	 *
+	 * @param {number} x middle x
+	 * @param {number} y middle y
+	 * @param {number} radius
+	 * @param {number} stroke_width
+	 * @param {String} inner_color RGB hexcolor
+	 * @param {String} stroke_color RGB hexcolor
+	 * @param {String} text 
+	 * @param {number} font_size
+	 * 
+	 */
 	draw_fill_path(p0, p1, p2, stroke_width, inner_color, stroke_color) {
 		var ctx = this._offscreen_ctx;
 		ctx.translate(0.5, 0.5);

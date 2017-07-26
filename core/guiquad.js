@@ -17,8 +17,10 @@ class GUI_quad {
         //this._rect      = { x: offset_x, y: offset_y, w: width, h: height };
         
         this._renderer  = renderer;
-        this._changed   = false;
+        this._changed   = true;
         this._rect      = rect;
+        // correct due to pixel perfectness
+        this._pp_rect = { x: this._rect.x - 0.5, y: this._rect.y - 0.5, w: this._rect.w + 0.5, h: this._rect.w + 0.5 };
 
         this._layers    = {};
 
@@ -50,17 +52,32 @@ class GUI_quad {
         return this._changed;
     }
 
+    get_node_with_id(id, layer = 'default') {
+        if (!this._layers.hasOwnProperty(layer)) {
+            return null;
+        }
+
+        if (id in this._layers[layer]) {
+            return this._layers[layer][id];
+        }
+        return null;
+    }
+
     /**
      * calculate if the node is inside the quad
      * 
      * @param {GUI_node} gui_node the gui node to add
      */
     calc_node_inside(gui_node) {
-        if (a_rect_contains_b(this._rect, gui_node.rect())) {
+        var bordered_rect = gui_node.ap_border_rect(ANCHOR_TOPLEFT);
+
+        //console.log('r1: ' + bordered_rect.x + ', ' + bordered_rect.y + ', ' + bordered_rect.w + ', ' + bordered_rect.h);
+
+        if (a_rect_contains_b(this._pp_rect, bordered_rect)) {
             return NODE_FULLY_INSIDE;
         }
 
-        if (a_overlaps_b(this._rect, gui_node.rect())) {
+        if (a_rect_overlaps_b(this._pp_rect, bordered_rect)) {
             return NODE_PARTIALLY_INSIDE;
         }
 
@@ -73,6 +90,7 @@ class GUI_quad {
      * @param {GUI_node} gui_node the gui node to add
      */
     add_node(gui_node, layer = 'default') {
+        
         if (!this._layers.hasOwnProperty(layer)) {
             this._layers[layer] = {};
         }
@@ -155,5 +173,10 @@ class GUI_quad {
         //console.log('x:' + this._rect.x +' y:'+ this._rect.y  + ' w:' + this._rect.w +' h:'+  this._rect.h);
         // swap the buffer for the rect
         this._renderer.swap_buffer(this._rect);
+    }
+
+    print() {
+        console.log('GUI_quad: ' + this.id());
+        console.log('        : pp rect: ' + JSON.stringify(this._pp_rect));
     }
 }
