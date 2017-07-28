@@ -1,9 +1,131 @@
+// Converts from degrees to radians.
+Math.radians = function(degrees) {
+  return degrees * Math.PI / 180;
+};
+ 
+// Converts from radians to degrees.
+Math.degrees = function(radians) {
+  return radians * 180 / Math.PI;
+};
+
+
+var line_intersection = function(
+    Ax, Ay,
+    Bx, By,
+    Cx, Cy,
+    Dx, Dy,
+    point) {
+
+  var  distAB, theCos, theSin, newX, ABpos ;
+
+  //  Fail if either line is undefined.
+  if (Ax==Bx && Ay==By || Cx==Dx && Cy==Dy) {
+      return false;
+  }
+  
+  //  (1) Translate the system so that point A is on the origin.
+  Bx-=Ax; By-=Ay;
+  Cx-=Ax; Cy-=Ay;
+  Dx-=Ax; Dy-=Ay;
+
+  //  Discover the length of segment A-B.
+  distAB=Math.sqrt(Bx*Bx+By*By);
+
+  //  (2) Rotate the system so that point B is on the positive X axis.
+  theCos=Bx/distAB;
+  theSin=By/distAB;
+  newX=Cx*theCos+Cy*theSin;
+  Cy  =Cy*theCos-Cx*theSin; Cx=newX;
+  newX=Dx*theCos+Dy*theSin;
+  Dy  =Dy*theCos-Dx*theSin; Dx=newX;
+
+  //  Fail if the lines are parallel.
+  if (Cy==Dy) {
+      return false;
+  }
+
+  //  (3) Discover the position of the intersection point along line A-B.
+  ABpos=Dx+(Cx-Dx)*Dy/(Dy-Cy);
+
+  //  (4) Apply the discovered position to line A-B in the original coordinate system.
+  point.x=Ax+ABpos*theCos;
+  point.y=Ay+ABpos*theSin;
+
+  //  Success.
+  return true; 
+}
+
+//  Given the sequentially connected points (a,b), (c,d), and (e,f), this
+//  function returns, in (C,D), a bevel-inset replacement for point (c,d).
+//
+//  Note:  If vectors (a,b)->(c,d) and (c,d)->(e,f) are exactly 180° opposed,
+//         or if either segment is zero-length, this function will do
+//         nothing; i.e. point (C,D) will not be set.
+
+var inset_corner = function(
+a, b,   //  previous point
+c, d,   //  current point that needs to be inset
+e, f,   //  next point
+point,   //  storage location for new, inset point
+insetDist) {     //  amount of inset (perpendicular to each line segment)
+
+    var  c1=c, d1=d, c2=c, d2=d, dx1, dy1, dist1, dx2, dy2, dist2, insetX, insetY ;
+
+    //  Calculate length of line segments.
+    dx1=c-a; dy1=d-b; dist1=Math.sqrt(dx1*dx1+dy1*dy1);
+    dx2=e-c; dy2=f-d; dist2=Math.sqrt(dx2*dx2+dy2*dy2);
+
+    //  Exit if either segment is zero-length.
+    if (dist1==0. || dist2==0.) return;
+
+    //  Inset each of the two line segments.
+    insetX= dy1/dist1*insetDist; a+=insetX; c1+=insetX;
+    insetY=-dx1/dist1*insetDist; b+=insetY; d1+=insetY;
+    insetX= dy2/dist2*insetDist; e+=insetX; c2+=insetX;
+    insetY=-dx2/dist2*insetDist; f+=insetY; d2+=insetY;
+
+    //  If inset segments connect perfectly, return the connection point.
+    if (c1==c2 && d1==d2) {
+        point.x=c1; point.y=d1; return; 
+    }
+
+    var pp = {x: 0, y: 0};
+
+    //  Return the intersection point of the two inset segments (if any).
+    if (line_intersection(a,b,c1,d1,c2,d2,e,f,pp)) {
+        point.x=pp.x; point.y=pp.y; 
+    }
+}
+
+
+//  public-domain code by Darel Rex Finley, 2007
+//  See diagrams at http://alienryderflex.com/polygon_inset
+var inset_polygon = function(points, insetDist) {
+
+    var startX=points[0].x, startY=points[0].y, a, b, c, d, e, f ;
+    var i ;
+    var corners = points.length;
+
+    //  Polygon must have at least three corners to be inset.
+    if (corners < 3) return;
+
+    //  Inset the polygon.
+    c=points[corners-1].x; d=points[corners-1].y; e=points[0].x; f=points[0].y;
+    for (i=0; i<corners-1; i++) {
+        a=c; b=d; c=e; d=f; e=points[i+1].x; f=points[i+1].y;
+        inset_corner(a,b,c,d,e,f,points[i],insetDist); 
+    }
+        
+    inset_corner(c,d,e,f,startX,startY,points[i],insetDist); 
+}
+
+
 /**
  * Calculates the angle (in radians) between two vectors pointing outward from one center
  *
- * @param p0 first point
- * @param p1 second point
- * @param c center point
+ * @param {JSON} p0 first point
+ * @param {JSON} p1 second point
+ * @param {JSON} c center point
  */
 var find_angle = function(p0, p1, c) {
     var p0c = Math.sqrt(Math.pow(c.x-p0.x,2)+
@@ -13,6 +135,55 @@ var find_angle = function(p0, p1, c) {
     var p0p1 = Math.sqrt(Math.pow(p1.x-p0.x,2)+
                          Math.pow(p1.y-p0.y,2)); // p0->p1 (c)
     return Math.acos((p1c*p1c+p0c*p0c-p0p1*p0p1)/(2*p1c*p0c));
+}
+
+
+/**
+ * assumes 3 points where polygon has been drawn clockwise
+ * 
+ * @param {JSON} p0 first point
+ * @param {JSON} p1 second point
+ * @param {JSON} c center point
+ * @param {JSON} dist the distance to shrink 
+ * 
+ * @returns {JSON} x,y absolute coordinate
+ */
+var shrink_corner = function(p0, p1, c, dist) {
+    var deg = find_angle(p0, p1, c) / 2.0;
+    var x = 0;
+    var y = 0;
+    if (p0.x <= c.x && p1.x >= c.x && p0.y >= c.y && p1.y >= c.y) {
+        console.log('case 1');
+        if (p0.x - c.x > p1.x - c.x) {
+            x = dist * Math.sin(deg - Math.radians(90));
+        }
+        else {
+            x = dist * Math.sin(deg - Math.radians(90)) * -1.0;
+        }
+        y = dist * Math.cos(deg) * -1.0;
+        console.log('x: ' + x + ', y: ' + y);
+    }
+    if (p0.x >= p1.x && p0.y >= p1.y) {
+        x = dist * Math.cos(deg);
+        y = dist * Math.sin(deg) * -1.0;
+    }
+    else if (p0.x <= p1.x && p0.y <= p1.y) {
+        x = dist * Math.sin(deg) * -1.0;
+        y = dist * Math.cos(deg);
+    }
+    else if (p0.x <= p1.x && p0.y >= p1.y) { // ok
+        x = dist * Math.cos(deg);
+        y = dist * Math.sin(deg);
+    }
+    else if (p0.x >= p1.x && p0.y <= p1.y) { //ok!
+        x = dist * Math.sin(deg) * -1.0;
+        y = dist * Math.cos(deg) * -1.0;
+    }
+    else {
+        console.log('ERROR IN SHRINK CORNER');
+    }
+
+    return { x: c.x + x, y: c.y + y};
 }
 
 /**
@@ -119,6 +290,22 @@ var max_arr = function(array, prop_name) {
 
     return max;
 }
+
+/** Calculate and return the boundingrect for polygon or path
+ * 
+ * @returns {Array<JSON>} {x,y,w,h}
+ */
+var calc_br = function(points) {
+    var min_x = min_arr(points, 'x');
+    var max_x = max_arr(points, 'x');
+    var min_y = min_arr(points, 'y');
+    var max_y = max_arr(points, 'y');
+
+    var br = {x: min_x, y: min_y, w: max_x - min_x, h: max_y - min_y};
+
+    return br;
+}
+
 
 /**
  * Helper function to determine point in triangle

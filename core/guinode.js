@@ -123,10 +123,11 @@ class GUI_node
         this._highlight_color = '#44aa44';
         this._points         = [];
         this._abs_points     = [];
+        this._prev_points    = [];
         this._anchor_point   = ap;
         this._visible        = true;
         this._prev_state     = { x: 0, y: 0, w: 16, h: 16 };
-
+        this._br             = { x: 0, y: 0, w: 0, h: 0 };
 	}
 
     /**
@@ -174,6 +175,17 @@ class GUI_node
     }
 
     /**
+     * Same reason as for prev_state, only this is for paths and polygons
+     * 
+     * @param {JSON} points {x,y}
+     */
+    set_prev_point_state(points) {
+        this._prev_points = JSON.parse(JSON.stringify(points));
+    }
+
+    prev_point_state() { return this._prev_points; }
+
+    /**
      * Returns the dimensions from the last time we did set_zoom_helper
      * 
      * @returns {JSON} x, y, w, h
@@ -184,9 +196,29 @@ class GUI_node
         
     }
 
+    /**
+     * @readonly
+     * 
+     * Will return a copy of the absolute points
+     * 
+     * @returns {Array<JSON>} returns a copy of absolute points in the triangle
+     */
+    abs_points() {
+        return JSON.parse(JSON.stringify(this._abs_points));
+    }
+
+    br() {
+        return this._br;
+    }
+
+    set_br(br) {
+        this._br = br;
+    }
+
     quad_ids() { return this._quad_ids; }
 
     set_rect(rect) { 
+       
         if (this._anchor_point == ANCHOR_CENTER) {
             this._center_rect = rect; 
             this._topleft_rect = rect_center_to_topleft(this._center_rect);
@@ -231,6 +263,9 @@ class GUI_node
         console.log('        : ap_border_rect (top left): ' + JSON.stringify(this.ap_border_rect(ANCHOR_TOPLEFT)));
         console.log('        : contained in : ' + JSON.stringify(this._quad_ids));
         console.log('        : helper rect : ' + JSON.stringify(this._prev_state));
+        if (this._shape == 'polygon') {
+            console.log('        : BR : ' + JSON.stringify(this._br));
+        }
     }
 
     font() { return this._font; }
@@ -239,6 +274,7 @@ class GUI_node
     icon_offset() { return [this._icon_x_offset, this._icon_y_offset]; }
 
     internal_get_rect() {
+        
         return this._anchor_point == ANCHOR_CENTER ? this._center_rect : this._topleft_rect;
     }
 
@@ -329,15 +365,24 @@ class GUI_node
     }
 
     /**
+     * Get the points of the polygon or path
+     * @returns {Array<JSON>} [{x,y}...]
+     */
+    points() { return this._points; }
+
+    /**
      * makes an array of absolute coordinates so we dont have to calculate this every draw call
      * 
      */
     create_abs_points() {
         var r = this._center_rect;
+        this._abs_points = [];
 
         for (var i = 0; i < this._points.length; ++i) {
             this._abs_points.push({ x: r.x + this._points[i].x, y: r.y + this._points[i].y });
         }
+
+        this.set_br(calc_br(this._abs_points));
     }
 
     /**

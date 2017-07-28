@@ -75,7 +75,7 @@ class Render_screen {
         canvas.height = img.height;
         
 		canvas.getContext('2d').drawImage(img, 0, 0, img.width, img.height);
-
+		
         return canvas;
     }
 
@@ -200,6 +200,18 @@ class Render_screen {
 		var ctx = this._offscreen_ctx;
 
 		ctx.drawImage(icon.img(), left, top, width, height);
+	}
+
+	/**
+	 * draws an image to a context
+	 * 
+	 * @param {Object} image_canvas image canvas element
+	 * @param {JSON} img_rect x, y, w, h
+	 * @param {JSON} target_rect x, y, w, h
+	 */
+	draw_image_ctx(image_canvas, img_rect, target_rect) {
+		var ctx = this._offscreen_ctx;
+		ctx.drawImage(image_canvas, img_rect.x, img_rect.y, img_rect.w, img_rect.h, target_rect.x, target_rect.y, target_rect.w, target_rect.h);
 	}
 
 	/**
@@ -361,16 +373,14 @@ class Render_screen {
 
 
 	/**
-	 * draws a triangle
+	 * draws a fill path of 3 points
 	 *
-	 * @param {number} x middle x
-	 * @param {number} y middle y
-	 * @param {number} radius
+	 * @param {JSON} p0 first point
+	 * @param {JSON} p1 second point 
+	 * @param {JSON} p2 third point
 	 * @param {number} stroke_width
 	 * @param {String} inner_color RGB hexcolor
 	 * @param {String} stroke_color RGB hexcolor
-	 * @param {String} text 
-	 * @param {number} font_size
 	 * 
 	 */
 	draw_fill_path(p0, p1, p2, stroke_width, inner_color, stroke_color) {

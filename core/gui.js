@@ -18,6 +18,10 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 const ANCHOR_TOPLEFT    = 1;
 const ANCHOR_CENTER     = 2;
 
+const BACKGROUND_IMAGE_STRETCH  = 1;
+const BACKGROUND_IMAGE_REPEAT   = 2;
+const BACKGROUND_IMAGE_CENTER   = 3;
+
 
 var _global_gui_id = 0;
 
@@ -170,6 +174,13 @@ class GUI {
      */
     constructor(canvas_id, anchor_point = ANCHOR_CENTER, quad_division = 8) {
         _gui_containers.push(this);
+        this._events = {}
+        this._events['click'] = [];
+        this._events['node_selected'] = [];
+        this._events['node_highlight'] = [];
+        this._events['node_deselected'] = [];
+
+
         this._anchor_point = anchor_point;
 
         this._canvas_elem = document.getElementById(canvas_id);
@@ -243,21 +254,54 @@ class GUI {
         this._selected_nodes = {};
         this._prev_center = {x: 0, y: 0};
         this._force_draw = false;
+        this._bg_image = null;
+        this._bg_sizing = 0;
 
         this.generate_quads(quad_division);
 
         this.add_layer(this._layer);
 
-        this._events = {}
-        this._events['click'] = [];
-        this._events['node_selected'] = [];
-        this._events['node_highlighted'] = [];
-        this._events['node_deselected'] = [];
+        
         
     }
 
     init() {
 
+    }
+
+    /**
+     * Sets a background image for the entire canvas
+     */
+    set_bg_image(img_src, sizing = BACKGROUND_IMAGE_STRETCH) {
+
+        var loadingimage = new Image();
+        var that = this;
+
+        this._bg_sizing = sizing;
+
+        loadingimage.addEventListener('load', function() {
+            
+            that._bg_image = loadingimage;
+            var rect = {x: 0, y: 0, w: that._bg_image.width, h:  that._bg_image.height};
+        
+            if (that._bg_sizing == BACKGROUND_IMAGE_STRETCH) {
+                var x_div = rect.w / that._quad_division;
+                var y_div = rect.h / that._quad_division;
+
+                for (var gy = 0; gy < that._quad_division; ++gy) {
+                    for (var gx = 0; gx < that._quad_division; ++gx) {
+                        var r = {x: x_div * gx, y: y_div * gy, w: x_div, h: y_div};
+                        
+                        that._quads[gx+':'+gy].set_bg_image(loadingimage, r);
+                    }
+                }
+            }
+
+            that = null;
+            loadingimage = null;
+        });
+        
+        loadingimage.src = img_src;
     }
 
     /**
@@ -267,6 +311,7 @@ class GUI {
      * @param {Callback} callback the callback to be called
      */
     on(event_str, callback) {
+        console.log(JSON.stringify(this._events));
         this._events[event_str].push(callback);
     }
 
@@ -392,12 +437,19 @@ class GUI {
         g.set_width(width);
         g.set_height(height);
         g.set_points(points); // we must call set points AFTER set_pos
+        g.set_prev_point_state(g.abs_points());
+        g.print();
+
         g.set_background_color(background_color);
         g.set_border_color(border_color);
         g.set_caption(caption);
         g.set_border_thickness(border);
         
+        this._nodes[g.id()] = g;
+        
         var q = this.calc_quads_for_node(g);
+
+        
 
         for (var k in q) {
             q[k].add_node(g);
@@ -407,28 +459,6 @@ class GUI {
 
         return g;
     }
-
-    get_quad_with_id(id) {
-        if (id in this._quads) {
-            return this._quads[id];
-        }
-
-        return null;
-    }
-
-    get_node_with_id(id) {
-        for (var k in this._quads) {
-            var n = this._quads[k].get_node_with_id(id);
-
-            if (n != null) {
-                return n;
-            }
-        }
-
-        return null;
-    }
-
-    //draw_fill_points
 
     /**
      * Creates and returns a new circle
@@ -465,6 +495,39 @@ class GUI {
     }
 
     /**
+     * Supply the ID of a quad and it shall be returned
+     * 
+     * @param {String} id id of quad
+     * 
+     * @returns {GUI_quad} null if not found
+     */
+    get_quad_with_id(id) {
+        if (id in this._quads) {
+            return this._quads[id];
+        }
+
+        return null;
+    }
+
+    /**
+     * @param {number} id id of node
+     * 
+     * @returns {GUI_node} null if not found
+     */
+    get_node_with_id(id) {
+        for (var k in this._quads) {
+            var n = this._quads[k].get_node_with_id(id);
+
+            if (n != null) {
+                return n;
+            }
+        }
+
+        return null;
+    }
+
+
+    /**
      * Sets the zoom factor centered on the given absolute coordinate in canvas space
      * 
      * Forces a full redraw of the GUI
@@ -494,11 +557,29 @@ class GUI {
             }
             
             try {
-                var pos = node.pos();
-                var help = node.prev_state();
-                node.set_width(help.w * factor);
-                node.set_height(help.h * factor);
-                node.set_pos((help.x * factor) - center_x, (help.y * factor) - center_y) ;
+                if (node.shape() == 'polygon') {
+                    //console.log('polygon shape, before:');
+                    var points = node.points();
+                    var ppoints = node.prev_point_state();
+
+                    //node.print();
+                    for (var i = 0; i < points.length; ++i) {
+                        points[i].x = (ppoints[i].x*factor);
+                        points[i].y = (ppoints[i].y*factor);
+                    }
+                    node.set_points(points);
+
+                    //console.log('polygon shape, after:');
+                    node.print();
+                }
+                else {
+                    var pos = node.pos();
+                    var help = node.prev_state();
+                    node.set_width(help.w * factor);
+                    node.set_height(help.h * factor);
+                    node.set_pos((help.x * factor) - center_x, (help.y * factor) - center_y) ;
+                }
+                
 
                 var calced_qs = this.calc_quads_for_node(node);
 
@@ -888,10 +969,10 @@ class GUI {
             this._high_node.set_highlighted(true);
             this.mark_changed_node(this._high_node);
             
-            for (var i = 0; i < this._events['node_highlighted'].length; ++i) {
-                this._events['node_highlighted'][i](this._high_node);
+            for (var i = 0; i < this._events['node_highlight'].length; ++i) {
+                this._events['node_highlight'][i](this._high_node);
             }
-        }        
+        }
     }
 
     /**

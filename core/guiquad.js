@@ -19,6 +19,7 @@ class GUI_quad {
         this._renderer  = renderer;
         this._changed   = true;
         this._rect      = rect;
+        this._img_rect  = { x: 0, y: 0, w: 0, h: 0 };
         // correct due to pixel perfectness
         this._pp_rect = { x: this._rect.x - 0.5, y: this._rect.y - 0.5, w: this._rect.w + 0.5, h: this._rect.w + 0.5 };
 
@@ -26,6 +27,7 @@ class GUI_quad {
 
         this._bg_color = '#000000';
         this._id       = id;
+        this._bg_image = null;
     }
 
     /**
@@ -69,7 +71,14 @@ class GUI_quad {
      * @param {GUI_node} gui_node the gui node to add
      */
     calc_node_inside(gui_node) {
-        var bordered_rect = gui_node.ap_border_rect(ANCHOR_TOPLEFT);
+        var bordered_rect = null;
+
+        if (gui_node.shape() == 'polygon') {
+            bordered_rect = gui_node.br();
+        }
+        else {
+            bordered_rect = gui_node.ap_border_rect(ANCHOR_TOPLEFT);
+        }
 
         //console.log('r1: ' + bordered_rect.x + ', ' + bordered_rect.y + ', ' + bordered_rect.w + ', ' + bordered_rect.h);
 
@@ -153,6 +162,17 @@ class GUI_quad {
         return nodes;
     }
     
+    /**
+     * Sets a background image for the quad with the given clipping rect
+     * 
+     * @param {Image} image image object
+     * @param {JSON} rect x, y, w, h
+     */
+    set_bg_image(image, rect) {
+        console.log(JSON.stringify(image));
+        this._bg_image = image;
+        this._img_rect = rect;
+    }
 
     /**
      * 
@@ -167,8 +187,13 @@ class GUI_quad {
         }
 
         this.set_changed(false);
-        
-        this._renderer.draw_box(this._rect.x, this._rect.y, this._rect.w, this._rect.h, this._bg_color, this._bg_color, 0);
+
+        if (this._bg_image != null) {
+            this._renderer.draw_image_ctx(this._bg_image, this._img_rect, this._rect);
+        }
+        else {
+            this._renderer.draw_box(this._rect.x, this._rect.y, this._rect.w, this._rect.h, this._bg_color, this._bg_color, 0);
+        }
 
         // draw each node
         for (var k in this._layers[layer]) {
