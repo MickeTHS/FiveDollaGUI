@@ -34,7 +34,7 @@ class Render_type {
      * @returns {GUI_node} returns the node if successfully popped, else null if not here
      */
     pop_node(gui_node) {
-        for (gui_node.id() in this._nodes) {
+        if (!(gui_node in this._nodes)) {
             return null;
         }
 
