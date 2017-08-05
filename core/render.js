@@ -63,6 +63,13 @@ class Render_screen {
 		this._shadow = false;
 
 		this._icons = [];
+		
+
+		this._counter = 0;
+
+		this._track = {};
+		this._track.border_states = [];
+		this._track.no_border_states = [];
 	}
     
     /**
@@ -111,11 +118,11 @@ class Render_screen {
 
 
     resize(width, height){
-		this._mainscreen.width = width;
+		this._mainscreen.width 	= width;
 		this._mainscreen.height = height;
-		this._offscreen.width = width;
-		this._offscreen.height = height;
-		this._offscreen_ctx = this._offscreen.getContext("2d");
+		this._offscreen.width 	= width;
+		this._offscreen.height 	= height;
+		this._offscreen_ctx 	= this._offscreen.getContext("2d");
     }
 		
 	print() {
@@ -134,12 +141,62 @@ class Render_screen {
 		this._mainscreen_ctx.clearRect(rect.x, rect.y, rect.w, rect.h);
 		this._offscreen_ctx.clearRect(rect.x, rect.y, rect.w, rect.h);
 	}
+
+	pre_draw() {
+		this._offscreen_ctx.translate(0.5, 0.5);
+	}
 	
+	post_draw() {
+		this._offscreen_ctx.translate(-0.5, -0.5);
+	}
+
 	swap_buffer(rect) {
-		this.draw_text_buffer();
+		/*var tmp = [];
+		var count = 0;
+		for (var i = 0; i < this._track.border_states.length; ++i) {
+			var found = false;
+			for (var t = 0; t < tmp.length; ++t) {
+				if (tmp[t].thickness == this._track.border_states[i].thickness && tmp[t].color == this._track.border_states[i].color) {
+					count++;
+					found = true;
+				}
+			}
+
+			if (!found) {
+				tmp.push(this._track.border_states[i]);
+			}
+		}
+
+		tmp = [];
+		var count2 = 0;
+		for (var i = 0; i < this._track.no_border_states.length; ++i) {
+			var found = false;
+			for (var t = 0; t < tmp.length; ++t) {
+				if (tmp[t] == this._track.no_border_states[i]) {
+					count2++;
+					found = true;
+				}
+			}
+
+			if (!found) {
+				tmp.push(this._track.no_border_states[i]);
+			}
+		}
+
+		console.log('TRACKED DUPLICATE STATES: border ' + count + ' no border: ' + count2);
+
+		this._track.border_states = [];
+		this._track.no_border_states = [];*/
+		//this.draw_text_buffer();
 		this._mainscreen_ctx.clearRect(rect.x, rect.y, rect.w, rect.h);
 		this._mainscreen_ctx.drawImage(this._offscreen, rect.x, rect.y, rect.w, rect.h, rect.x, rect.y, rect.w, rect.h);
 		this._offscreen_ctx.clearRect(rect.x, rect.y, rect.w, rect.h);
+	}
+
+	set_font(size, name) {
+		var ctx = this._offscreen_ctx;
+
+		ctx.font = size+"px " + name;
 	}
 	
 	draw_shadow(ctx) {
@@ -153,18 +210,231 @@ class Render_screen {
 		ctx.shadowColor = '#000000';
 	}
 
+	/**
+	 * draw an array of icons
+	 * 
+	 * @param {String} color hex color to replace white with
+	 * @param {Map<GUI_node>} gui_nodes nodes to get icons from
+	 */
+	draw_icon_assoc(color, gui_nodes) {
+		var ctx = this._offscreen_ctx;
+		
+		for (var k in gui_nodes) {
+			var tb = gui_nodes[k];
+			var tr = tb.icon_rect();
+
+			if (tr == null) {
+				continue;
+			}
+
+			var ir = tb.icon().rect;
+			
+			ctx.drawImage(tb.icon().image, ir.x, ir.y, ir.w, ir.h, tr.x, tr.y, tr.w, tr.h);
+		}
+	}
+
+	/**
+	 * draw an array of texts
+	 * 
+	 * @param {String} color hex color
+	 * @param {Map<GUI_node>} gui_nodes nodes to get texts from
+	 */
+	draw_text_assoc(color, gui_nodes) {
+		var ctx = this._offscreen_ctx;
+		
+		
+		for (var k in gui_nodes) {
+			var tb = gui_nodes[k];
+			var tr = tb.text_rect();
+
+			if (tr == null) {
+				continue;
+			}
+			
+
+			ctx.fillStyle = color;
+			ctx.fillText(tb.caption(), tr.x, tr.y);
+			//ctx.fillStyle = '#ffffff';
+			//ctx.fillText('teeest', 300, 300);
+		}
+	}
+
+	/**
+	 * More efficient way of drawing a lot of bordered boxes, we do this as step 2
+	 * 
+	 * @param {String} color hex color
+	 * @param {number} thickness the border thickness
+	 * @param {GUI_node} nodes the list of nodes to draw
+	 */
+	draw_borders_assoc(color, thickness, nodes) {
+		var ctx = this._offscreen_ctx;
+		var r = null;
+		var len = nodes.length;
+
+		ctx.beginPath();
+		ctx.lineWidth = thickness;
+		ctx.strokeStyle = color;
+
+		for (var k in nodes) {
+			r = nodes[k].topleft_rect();
+
+			ctx.moveTo(r.x, r.y);
+  			ctx.lineTo(r.x + r.w, r.y);
+			ctx.lineTo(r.x + r.w, r.y + r.h);
+			ctx.lineTo(r.x, r.y + r.h);
+			ctx.lineTo(r.x, r.y);
+		}
+
+		ctx.stroke();
+	}
+
+	/**
+	 * More efficient way of drawing a lot of boxes, if you want borders on your boxes, you must supply the nodes array 
+	 * to draw_borders_arr immediately after this call
+	 * 
+	 * 
+	 * @param {String} color hex color
+	 * @param {GUI_node} nodes the list of nodes to draw
+	 */
+	draw_no_border_box_assoc(color, nodes) {
+		var ctx = this._offscreen_ctx;
+		var r = null;
+		
+		ctx.fillStyle = color;
+		for (var k in nodes) {
+			r = nodes[k].topleft_rect();
+			ctx.fillRect(r.x, r.y, r.w, r.h);
+		}
+	}
+
+	/**
+	 * More efficient way of drawing a lot of polygons, if you want borders on your boxes, you must supply the nodes array 
+	 * to draw_borders_arr immediately after this call
+	 * 
+	 * 
+	 * @param {String} color hex color
+	 * @param {GUI_node} nodes the list of nodes to draw
+	 */
+	draw_no_border_poly_assoc(color, nodes) {
+	
+		var ctx = this._offscreen_ctx;
+
+		ctx.beginPath();
+
+		//this._track.no_border_states.push(color);
+
+		ctx.fillStyle = color;
+		var len = 0;
+		for (var k in nodes) {
+			var points = nodes[k].abs_points();
+			ctx.moveTo(points[0].x, points[0].y);
+			len = points.length;
+
+			for (var i = 1; i < len; ++i) {
+				ctx.lineTo(points[i].x, points[i].y);
+			}
+
+			ctx.lineTo(points[0].x, points[0].y);
+			ctx.fill();
+		}
+	}
+
+	/**
+	 * More efficient way of drawing a lot of polygons, if you want borders on your boxes, you must supply the nodes array 
+	 * to draw_borders_arr immediately after this call
+	 * 
+	 * 
+	 * @param {String} color hex color
+	 * @param {GUI_node} nodes the list of nodes to draw
+	 */
+	draw_borders_poly_assoc(color, thickness, nodes) {
+		var ctx = this._offscreen_ctx;
+
+		var r = null;
+		
+		ctx.beginPath();
+		ctx.lineWidth = thickness;
+		ctx.strokeStyle = color;
+
+		//this._track.border_states.push({ color, thickness } );
+		var len = 0;
+		for (var k in nodes) {
+			
+			var points = nodes[k].abs_points();
+			ctx.moveTo(points[0].x, points[0].y);
+			len = points.length;
+			for (var i = 1; i < len; ++i) {
+				ctx.lineTo(points[i].x, points[i].y);
+			}
+
+			ctx.lineTo(points[0].x, points[0].y);
+		}
+
+		ctx.stroke();
+	}
+
+
+	/**
+	 * More efficient way of drawing a lot of bordered boxes, we do this as step 2
+	 * 
+	 * @param {String} color hex color
+	 * @param {number} thickness the border thickness
+	 * @param {GUI_node} nodes the list of nodes to draw
+	 */
+	draw_borders_array(color, thickness, nodes) {
+		var ctx = this._offscreen_ctx;
+		var r = null;
+		var len = nodes.length;
+
+		ctx.beginPath();
+		ctx.lineWidth = thickness;
+		ctx.strokeStyle = color;
+
+		for (var i = 0; i < len; ++i) {
+			r = nodes[i].topleft_rect();
+
+			ctx.moveTo(r.x, r.y);
+  			ctx.lineTo(r.x + r.w, r.y);
+			ctx.lineTo(r.x + r.w, r.y + r.h);
+			ctx.lineTo(r.x, r.y + r.h);
+			ctx.lineTo(r.x, r.y);
+		}
+
+		ctx.stroke();
+	}
+
+	/**
+	 * More efficient way of drawing a lot of boxes, if you want borders on your boxes, you must supply the nodes array 
+	 * to draw_borders_arr immediately after this call
+	 * 
+	 * 
+	 * @param {String} color hex color
+	 * @param {GUI_node} nodes the list of nodes to draw
+	 */
+	draw_no_border_box_array(color, nodes) {
+		var ctx = this._offscreen_ctx;
+		var r = null;
+		var len = nodes.length;
+
+		ctx.fillStyle = color;
+		for (var i = 0; i < len; ++i) {
+			r = nodes[i].topleft_rect();
+			ctx.fillRect(r.x, r.y, r.w, r.h);
+		}
+	}
+
 	draw_box(left, top, w, h, bg_color, stroke_color, stroke_thickness) {
 		var ctx = this._offscreen_ctx;
-		ctx.translate(0.5, 0.5);
+//		ctx.translate(0.5, 0.5);
 		ctx.beginPath();
 		ctx.rect(left, top, w, h);
 		ctx.fillStyle = bg_color;
-		this.draw_shadow(ctx);
+		
 		ctx.fill();
 		ctx.lineWidth = stroke_thickness;
 		ctx.strokeStyle = stroke_color;
 		ctx.stroke();
-		ctx.translate(-0.5, -0.5);
+//		ctx.translate(-0.5, -0.5);
 	}
 	
 	/**
@@ -220,7 +490,7 @@ class Render_screen {
 	draw_text_buffer() {
 		var ctx = this._offscreen_ctx;
 
-		ctx.translate(0.5, 0.5);
+//		ctx.translate(0.5, 0.5);
 		for (var i = 0; i < this._text_buffer.length; ++i) {
 			var tb = this._text_buffer[i];
 
@@ -229,7 +499,7 @@ class Render_screen {
 			ctx.fillText(tb.text(), tb.x(), tb.y());
 		}
 
-		ctx.translate(-0.5, -0.5);
+//		ctx.translate(-0.5, -0.5);
 		this._text_buffer = [];
 	}
 	
@@ -274,14 +544,14 @@ class Render_screen {
 	 */
 	draw_line(x0, y0, x1, y1, thickness, color) {
 		var ctx = this._offscreen_ctx;
-		ctx.translate(0.5, 0.5);
+//		ctx.translate(0.5, 0.5);
 		ctx.beginPath();
 		ctx.moveTo(x0, y0);
 		ctx.lineTo(x1, y1);
 		ctx.lineWidth = thickness;
 		ctx.strokeStyle = color;
 		ctx.stroke();
-        ctx.translate(-0.5, -0.5);
+//        ctx.translate(-0.5, -0.5);
 	}
 
 	/**
@@ -296,7 +566,7 @@ class Render_screen {
 	 */
 	draw_circle(x, y, radius, stroke_width, inner_color, stroke_color) {
 		var ctx = this._offscreen_ctx;
-		ctx.translate(0.5, 0.5);
+//		ctx.translate(0.5, 0.5);
 		ctx.beginPath();
 		ctx.arc(x, y, radius, 0, 2 * Math.PI, false);
 		ctx.fillStyle = inner_color;
@@ -304,7 +574,7 @@ class Render_screen {
 		ctx.lineWidth = stroke_width;
 		ctx.strokeStyle = stroke_color;
 		ctx.stroke();
-		ctx.translate(-0.5, -0.5);
+//		ctx.translate(-0.5, -0.5);
 	}
 	
 	/**
@@ -330,9 +600,14 @@ class Render_screen {
 		this.draw_text_color(x - w, y, font_size, 'white', text);
 	}
 
-	calc_text_width(font, text) {
+	/**
+	 * Measures the text width on the canvas
+	 * 
+	 * @param {String} text the string to "draw"
+	 */
+	calc_text_width(text) {
 		var ctx = this._offscreen_ctx;
-		ctx.font = font;
+		//ctx.font = font;
 		return ctx.measureText(text).width;
 	}
 	
@@ -353,7 +628,7 @@ class Render_screen {
 		}
 
 		var ctx = this._offscreen_ctx;
-		ctx.translate(0.5, 0.5);
+//		ctx.translate(0.5, 0.5);
 		ctx.beginPath();
 		ctx.moveTo(points[0].x, points[0].y);
 		
@@ -368,7 +643,7 @@ class Render_screen {
 		ctx.lineWidth = stroke_width;
 		ctx.strokeStyle = stroke_color;
 		ctx.stroke();
-		ctx.translate(-0.5, -0.5);
+//		ctx.translate(-0.5, -0.5);
 	}
 
 
@@ -385,7 +660,7 @@ class Render_screen {
 	 */
 	draw_fill_path(p0, p1, p2, stroke_width, inner_color, stroke_color) {
 		var ctx = this._offscreen_ctx;
-		ctx.translate(0.5, 0.5);
+//		ctx.translate(0.5, 0.5);
 		ctx.beginPath();
 		ctx.moveTo(p0[0], p0[1]);
 		ctx.lineTo(p1[0], p1[1]);
@@ -396,12 +671,12 @@ class Render_screen {
 		ctx.lineWidth = stroke_width;
 		ctx.strokeStyle = stroke_color;
 		ctx.stroke();
-		ctx.translate(-0.5, -0.5);
+//		ctx.translate(-0.5, -0.5);
 	}
 
 	draw_triangle(x, y, height, stroke_width, inner_color, stroke_color) {
 		var ctx = this._offscreen_ctx;
-        ctx.translate(0.5, 0.5);
+//        ctx.translate(0.5, 0.5);
 		var h = height/2;
 		ctx.beginPath();
 		ctx.moveTo(x-h,y+h);
@@ -412,21 +687,8 @@ class Render_screen {
 		ctx.lineWidth = stroke_width;
 		ctx.strokeStyle = stroke_color;
 		ctx.stroke();
-        ctx.translate(-0.5, -0.5);
+//        ctx.translate(-0.5, -0.5);
 	}
 
 	
 };
-	
-class Rnd_icon {
-	constructor(elem_id, name) {
-		this._elem_id = elem_id;
-		this._name 	  = name;
-		this._img     = document.getElementById(elem_id);
-	}
-
-	id() { return this._elem_id; }
-	name() { return this._name; }
-	img() { return this._img; }
-
-}

@@ -8,6 +8,20 @@ Math.degrees = function(radians) {
   return radians * 180 / Math.PI;
 };
 
+/**
+ * Changes the list of points to be from clockwise to counter clockwise, or the other way around
+ */
+var invert_points = function(points) {
+    var tmp = [];
+
+    for (var i = points.length-1; i >= 0; --i) {
+        tmp.push(points[i]);
+    }
+
+    for (var i = 0; i < tmp.length; ++i) {
+        points[i] = tmp[i];
+    }
+}
 
 var line_intersection = function(
     Ax, Ay,
@@ -102,8 +116,8 @@ insetDist) {     //  amount of inset (perpendicular to each line segment)
 //  See diagrams at http://alienryderflex.com/polygon_inset
 var inset_polygon = function(points, insetDist) {
 
-    var startX=points[0].x, startY=points[0].y, a, b, c, d, e, f ;
-    var i ;
+    var startX=points[0].x, startY=points[0].y, a, b, c, d, e, f;
+    var i;
     var corners = points.length;
 
     //  Polygon must have at least three corners to be inset.
@@ -306,6 +320,13 @@ var calc_br = function(points) {
     return br;
 }
 
+var point_in_rect = function(x, y, rect) {
+    if (rect.x > x || rect.x + rect.w < x || rect.y > y || rect.y + rect.h < y) {
+        return false;
+    }
+    
+    return true;
+}
 
 /**
  * Helper function to determine point in triangle

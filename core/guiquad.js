@@ -169,7 +169,6 @@ class GUI_quad {
      * @param {JSON} rect x, y, w, h
      */
     set_bg_image(image, rect) {
-        console.log(JSON.stringify(image));
         this._bg_image = image;
         this._img_rect = rect;
     }
@@ -185,7 +184,7 @@ class GUI_quad {
         if (!force_draw && !this.is_changed()) {
             return;
         }
-
+        this._renderer.pre_draw();
         this.set_changed(false);
 
         if (this._bg_image != null) {
@@ -200,8 +199,8 @@ class GUI_quad {
             this._layers[layer][k].draw(false);
         }
 
-        
-        //console.log('x:' + this._rect.x +' y:'+ this._rect.y  + ' w:' + this._rect.w +' h:'+  this._rect.h);
+        this._renderer.post_draw();
+
         // swap the buffer for the rect
         this._renderer.swap_buffer(this._rect);
 

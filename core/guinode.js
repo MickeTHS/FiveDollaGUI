@@ -17,6 +17,13 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 
 
+const STATE_NO_CHANGE = 0;
+const STATE_CHANGE_TO_FRONT = 1;
+const STATE_CHANGE_TO_BACK = 2;
+const STATE_ICON_ADDED = 3;
+
+const ICON_STYLE_NORMAL = 1;
+const ICON_STYLE_STRETCHED = 2;
 
 /* class for drawing a line between two GUI_nodes */
 
@@ -85,7 +92,7 @@ var _drawcalls = 0;
 
 class GUI_node 
 {
-    constructor(renderobj, id, ap) {
+    constructor(renderobj, id, ap, shape) {
 		this._radius         = 8;
         
         this._center_rect    = { x: 0, y: 0, w: 16, h: 16 };
@@ -93,13 +100,13 @@ class GUI_node
 
         this._renderer       = renderobj;
         this._selected       = false;
-        this._icons          = [];
+        this._icon           = null;
         this._border_color   = '#dedede';
         this._border_thickness = 1;
         this._background_color = '#000000';
         this._icon_color     = '#000000';
         this._caption_color  = '#ffffff';
-        this._shape          = 'square';
+        this._shape          = shape;
         this._caption        = '';
         this._text_autohide  = false;
         this._got_focus      = false;
@@ -118,6 +125,7 @@ class GUI_node
         this._highlighted    = false;
         this._highlightable  = true;
         this._static_color   = false;
+        this._shaded_color   = false;
         this._id             = id;
         this._quad_ids       = [];
         this._highlight_color = '#44aa44';
@@ -128,6 +136,12 @@ class GUI_node
         this._visible        = true;
         this._prev_state     = { x: 0, y: 0, w: 16, h: 16 };
         this._br             = { x: 0, y: 0, w: 0, h: 0 };
+        this._state_changes     = [];
+        this._icon_style        = -1;
+        this._zoom_thresholds   = [];
+        this._zoom_thresholds.push(-1);
+        this._zoom_thresholds.push(-1);
+        
 	}
 
     /**
@@ -174,6 +188,18 @@ class GUI_node
         this._prev_state.h = h;
     }
 
+    zoom_thresholds() {
+        return this._zoom_thresholds;
+    }
+
+    set_min_zoom(factor) {
+        this._zoom_thresholds[0] = factor;
+    }
+
+    set_max_zoom(factor) {
+        this._zoom_thresholds[1] = factor;
+    }
+
     /**
      * Same reason as for prev_state, only this is for paths and polygons
      * 
@@ -193,7 +219,9 @@ class GUI_node
     prev_state() { return this._prev_state; }
 
     recalculate() {
-        
+        if (this._shape == 'polygon') {
+            this.create_abs_points();
+        }
     }
 
     /**
@@ -296,7 +324,7 @@ class GUI_node
     radius() { return this._radius; }
     
     radius() { return this._radius; }
-    icons() { return this._icons; }
+    icon() { return this._icon; }
     is_box() { return false; }
     has_hit_test() { return this._hit_test; }
     shape() { return this._shape; }
@@ -437,8 +465,31 @@ class GUI_node
      * 
      * @param {Rnd_icon} icon
      */
-    add_icon(icon) {
-        this._icons.push(icon);
+    set_icon(icon, style) {
+        this._icon_style = style;
+        this._icon = icon;
+
+        this.calc_icon_rect();
+
+        this._state_changes.push(STATE_ICON_ADDED);
+    }
+
+    /**
+     * Gets the rectangle for the icon as displayed on the screen, NOT the source rectangle
+     */
+    icon_rect() {
+        return this._icon_rect;
+    }
+
+    calc_icon_rect() {
+        var r = this._topleft_rect;
+
+        if (this._icon_style == ICON_STYLE_NORMAL) {
+            this._icon_rect = {x: r.x, y: r.y, w: this._icon.rect.w, h: this._icon.rect.h };
+            return;
+        }
+        
+        this._icon_rect = r;
     }
 
     /**
@@ -458,6 +509,11 @@ class GUI_node
      */
     set_background_color(color) {
         this._background_color = color;
+        this._shaded_color = color;
+
+        if (this._rth != null) {
+            this._rt = this._rth.add(this._shape, this._background_color, this._border_thickness, this._border_color);
+        }
     }
 
     /**
@@ -467,6 +523,10 @@ class GUI_node
      */
     set_border_color(color) {
         this._border_color = color;
+
+        if (this._rth != null) {
+            this._rt = this._rth.add(this._shape, this._background_color, this._border_thickness, this._border_color);
+        }
     }
 
     /**
@@ -476,17 +536,10 @@ class GUI_node
      */
     set_border_thickness(thickness) {
         this._border_thickness = thickness;
-    }
 
-    /**
-     * Sets the icon to be a specific shape, default is 'square'
-     * 
-     * Can also be 'triangle' and 'circle'
-     * 
-     * @param {String} shape
-     */
-    set_shape(shape) {
-        this._shape = shape;
+        if (this._rth != null) {
+            this._rt = this._rth.add(this._shape, this._background_color, this._border_thickness, this._border_color);
+        }
     }
 
     /**
@@ -495,14 +548,37 @@ class GUI_node
      * @param {number} x
      * @param {number} y
      */
-    set_pos(x, y) {
+    set_pos(x, y, recalculate = false) {
         var r = this.internal_get_rect();
         r.x = x;
         r.y = y;
 
         this.set_rect(r);
+
+        if (recalculate) {
+            this.recalculate();
+        }        
     }
 
+    state() {
+        if (this._state_changes.length <= 0) {
+            return STATE_NO_CHANGE;
+        }
+
+        return this._state_changes[0];
+    }
+
+    bring_to_back() {
+        this._state_changes.push(STATE_CHANGE_TO_BACK);
+    }
+    
+    bring_to_front() {
+        this._state_changes.push(STATE_CHANGE_TO_FRONT);
+    }
+
+    pop_state() {
+        this._state_changes.shift();
+    }
     
     /**
      * Sets the radius of the circle
@@ -545,8 +621,6 @@ class GUI_node
         this.set_rect(r);
     }
 
-
-
     /**
      * Sets the caption of the node as String
      * 
@@ -577,6 +651,36 @@ class GUI_node
      */
     set_selected(selected) {
         this._selected = selected;
+
+        this._shaded_color = this.shaded_color();
+    }
+
+    /**
+     * Gets the actual color of the node as its being rendered
+     * 
+     * @returns {String} color as hex
+     */
+    shaded_color() {
+        if (this._selected) {
+            return this._renderer.calc_shade_color(this._background_color, 0.5);
+        }
+        
+        return this._background_color;
+    }
+
+    text_rect() {
+        if (this._selected && this._text_autohide) {
+            return { x: this._mx, y: this._my };
+        }
+        else if (!this._text_autohide) {
+            var r = this.internal_get_rect();
+
+            var w = this._renderer.calc_text_width(this._caption);
+
+            return { x: r.x - w/2, y: r.y };
+        }
+
+        return null;
     }
 
     /**
@@ -613,111 +717,6 @@ class GUI_node
      */
     highlighted() {
         return this._highlighted;
-    }
-
-    /**
-     * Draws the node. 'first' is only used to allow for the autohidden text to be floating on top of everything else in the GUI (so its not obstructed)
-     * 
-     * @param {boolean} first default true
-     * @returns {GUI_node} if we didnt draw it, we return it, else null
-     */
-    draw(first = true) {
-        if (!this.visible()) {
-            return;
-        }
-
-        _drawcalls++;
-
-        if (_drawcalls % 100000 == 0) {
-            //console.log('draw: ' + _drawcalls);
-        }
-
-        if (first && this._selected && this._text_autohide) {
-            return this;
-        }
-
-        var calc_rect = this.internal_get_rect();
-
-        var w = calc_rect.w;
-        var bc = this._border_color;
-        var bt = this._border_thickness;
-
-        if (this._highlighted) {
-            bc = this._highlight_color;
-            bt = 2;
-        }
-
-        if (this._caption != '') {
-            w = this._renderer.calc_text_width(this._font_size+'px ' + this._font, this._caption);
-        }
-
-        var shaded_color = this._background_color;
-
-        if (this._selected) {
-            shaded_color = this._renderer.calc_shade_color(shaded_color, 0.5);
-        }
-
-        if (this._shape == 'square') {
-            if (_drawcalls % 10000 == 0) {
-                //this.print();
-            }
-
-            this._renderer.draw_box(this._topleft_rect.x, this._topleft_rect.y, this._topleft_rect.w, this._topleft_rect.h, shaded_color, bc, bt);
-        }
-        else if (this._shape == 'circle') {
-            this._renderer.draw_circle(this._center_rect.x, this._center_rect.y, this._radius, bt, shaded_color, bc);
-        }
-        else if (this._shape == 'triangle') {
-            this._renderer.draw_triangle(this._topleft_rect.x, this._topleft_rect.y, this._topleft_rect.w, bt, shaded_color, bc);
-        }
-        else if (this._shape == 'polygon') {
-            // we always draw it using abs_points, which has already been calculated (hopefully)
-            this._renderer.draw_fill_points(this._abs_points, bt, shaded_color, bc);
-        }
-
-        
-        if (this._caption != '') {
-
-            if (this._text_autohide && !this._selected) {
-                
-            }
-            else if (this._text_autohide) {
-                // draw a label
-                this._renderer.draw_box(this._mx, this._my, w+20, 20, '#000000', '#ffffff');
-                this._renderer.draw_text_color(this._mx + 10, this._my + 16, this._font, this._font_size, '#ffffff', this._caption);
-            }
-            else {
-                var cs = this._renderer.contrast(shaded_color);
-
-                this._renderer.draw_text_color(calc_rect.x + calc_rect.w/2 - w/2, calc_rect.y + calc_rect.h/2 + 4, this._font, this._font_size, cs, this._caption);
-            }
-        }
-
-        var mc = this._indicator_color;
-
-        if (mc != null) {
-            this._renderer.draw_fill_path([calc_rect.x, calc_rect.y], [calc_rect.x + 10, calc_rect.y], [calc_rect.x, calc_rect.y + 10], 1.0, mc, '#ffffff');
-        }
-
-        var add = (1.0 / (this._icons.length + 1)) * calc_rect.w;
-        var ix = calc_rect.x - calc_rect.w/2;
-        var iy = calc_rect.y - this._font_size+1;
-
-        if (this._caption == '') {
-            iy = calc_rect.y;
-        }
-        
-        ix += this._icon_x_offset;
-        iy += this._icon_y_offset;
-
-        for (var i = 0; i < this._icons.length; ++i) {
-            var img = this._icons[i].img();
-        
-            ix += add;
-
-            this._renderer.draw_icon(ix - img.width/2*this._icon_scale, iy, img.width * this._icon_scale, img.height * this._icon_scale, this._icons[i]);
-        }
-
     }
 
     
