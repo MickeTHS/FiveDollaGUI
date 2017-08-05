@@ -613,7 +613,7 @@ class GUI {
      * @param {number} border border thickness
      * @param {number} border_color border color around the box
      */
-    create_stored_polygon(id, x, y, points, caption = '', background_color = '#000', border = 1, border_color = '#fff') {
+    create_stored_polygon(id, x, y, points, caption = '', background_color = '#000', border = 1, border_color = '#000000') {
         
         for (var i = 0; i < this._nodes.length; ++i) {
             if (this._nodes[i].id() == id) {
@@ -653,7 +653,7 @@ class GUI {
         rt_b.add_node(g);
 
         if (caption != '') {
-            var rt_t = this._render_types.add_text('#ffffff');
+            var rt_t = this._render_types.add_text('#000000');
             rt_t.add_node(g);
         }
         
