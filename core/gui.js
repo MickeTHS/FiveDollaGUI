@@ -247,6 +247,9 @@ class GUI {
         this._renderer = new Render_screen(canvas_id, this._width, this._height);
         this._renderer.set_font(12, 'Verdana');
 
+        this._zoom_enabled       = false;
+        this._pan_enabled        = false;
+        this._select_box_enabled = false;
         
         
         // when document is finished loading
@@ -264,8 +267,8 @@ class GUI {
             }
 
             for (var i = 0; i < htmls.length; ++i) {
-                htmls[i].style.height= "100%";
-                htmls[i].style.overflow= "hidden";
+                //htmls[i].style.height= "100%";
+                //htmls[i].style.overflow= "hidden";
                 console.log('setting html style');
 
                 htmls[i].setAttribute('onmouseover',    'on_mouse_over(event);');
@@ -278,8 +281,8 @@ class GUI {
             }
 
             for (var i = 0; i < bodys.length; ++i) {
-                bodys[i].style.height= "100%";
-                bodys[i].style.overflow= "hidden";
+                //bodys[i].style.height= "100%";
+                //bodys[i].style.overflow= "hidden";
 
                 break;
             }
@@ -1198,7 +1201,9 @@ class GUI {
      * @param {number} delta the delta value of the wheel
      */
     wheel(delta) {
-        console.log('delta: ' + delta);
+        if (!this._zoom_enabled) {
+            return;
+        }
         
         if (delta < 0) {
             // zoom out
@@ -1207,7 +1212,6 @@ class GUI {
         else if (delta > 0) {
             this.set_zoom(this.width(), this.height(), 4.0);
         }
-
     }
 
     /**
@@ -1222,11 +1226,10 @@ class GUI {
             return;
         }
 
-        if (button == MOUSEBUTTON_LEFT) {
+        if (this._select_box_enabled && button == MOUSEBUTTON_LEFT) {
             this._select_boxing.running = true;
             this._select_boxing.x = x;
             this._select_boxing.y = y;
-            
         }
 
         for (var i = 0; i < this._events['click'].length; ++i) {
@@ -1306,11 +1309,11 @@ class GUI {
 
             var brect = { x: this._select_boxing.x, y: this._select_boxing.y, w: this._select_boxing.width, h: this._select_boxing.height};
 
-            for (var i = 0; i < this._nodes.length; ++i) {
+            /*for (var i = 0; i < this._nodes.length; ++i) {
                 if (point_in_rect(this._nodes[i].x(), this._nodes[i].y(), brect)) {
                     console.log(this._nodes[i].id() + ' inside rect');
                 }
-            }
+            }*/
 
             this._select_boxing.running = false;
             close_selection_box();
