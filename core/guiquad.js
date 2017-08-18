@@ -152,6 +152,7 @@ class GUI_quad {
         var nodes = {};
 
         for (var k in this._layers[layer]) {
+            
             var n = this._layers[layer][k].hit_test(x, y);
 
             if (n != null) {

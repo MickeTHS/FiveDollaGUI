@@ -121,7 +121,7 @@ var inset_polygon = function(points, insetDist) {
     var corners = points.length;
 
     //  Polygon must have at least three corners to be inset.
-    if (corners < 3) return;
+    if (corners < 3) return false;
 
     //  Inset the polygon.
     c=points[corners-1].x; d=points[corners-1].y; e=points[0].x; f=points[0].y;
@@ -131,6 +131,8 @@ var inset_polygon = function(points, insetDist) {
     }
         
     inset_corner(c,d,e,f,startX,startY,points[i],insetDist); 
+
+    return true;
 }
 
 

@@ -219,7 +219,7 @@ class GUI {
      * @param {id} canvas_id ID of the canvas element
      * @param {number} quad_division default 8 will create a grid of 8x8 quads for optimization purposes
      */
-    constructor(canvas_id, anchor_point = ANCHOR_CENTER, quad_division = 6) {
+    constructor(canvas_id, anchor_point = ANCHOR_CENTER, quad_division = 2) {
         _gui_containers.push(this);
 
         init_selection_box();
@@ -488,6 +488,7 @@ class GUI {
         var quads = {};
 
         for (var k in this._quads) {
+            
             var res = this._quads[k].calc_node_inside(gui_node);
             if (res == NODE_FULLY_INSIDE) {
                 quads[k] = this._quads[k];
@@ -605,6 +606,10 @@ class GUI {
         return g;
     }
 
+    get_current_id() {
+        return _global_gui_id;
+    }
+
     /**
      * Creates and returns a new polygon
      * 
@@ -667,6 +672,7 @@ class GUI {
         for (var k in q) {
             q[k].add_node(g);
         }
+       
 
         g.set_quad_ids(Object.keys(q));
 
@@ -1115,6 +1121,7 @@ class GUI {
         var q = this.get_quad_at_pos(x, y);
 
         if (q == null) { return null; }
+        
 
         var nodes = q.get_nodes_at_pos(x, y);
 
@@ -1174,6 +1181,10 @@ class GUI {
         }
 
         this._selected_nodes = [];
+
+        if (nodes !== undefined && nodes != null && Object.keys(nodes).length > 0) {
+            console.log('num nodes: ' + Object.keys(nodes).length);
+        }
 
         for (var k in nodes) {
             
@@ -1349,7 +1360,7 @@ class GUI {
     mousemove(x, y) {
         
         if (this._select_boxing.running) {
-            console.log('running: x: ' + x + ' y: ' + y);
+            
             var bx = this._select_boxing.x + this._pos_rect.x;
             var by = this._select_boxing.y + this._pos_rect.y;
 
