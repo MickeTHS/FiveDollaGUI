@@ -327,6 +327,7 @@ class Render_screen {
 		var len = 0;
 		for (var k in nodes) {
 			var points = nodes[k].abs_points();
+			
 			ctx.moveTo(points[0].x, points[0].y);
 			len = points.length;
 

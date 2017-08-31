@@ -1182,10 +1182,6 @@ class GUI {
 
         this._selected_nodes = [];
 
-        if (nodes !== undefined && nodes != null && Object.keys(nodes).length > 0) {
-            console.log('num nodes: ' + Object.keys(nodes).length);
-        }
-
         for (var k in nodes) {
             
             this._selected_nodes.push(nodes[k]);
@@ -1204,6 +1200,23 @@ class GUI {
             nodes[k].set_mousepos(x,y);
         }
 
+    }
+
+    state_change_node(guinode) {
+        var rt = null;
+
+        if (guinode.shape() == 'square') {
+            this._render_types.remove_node(guinode, RT_SQUARE);
+            rt = this._render_types.add_square(guinode.shaded_color());
+        }
+        else if (guinode.shape() == 'polygon') {
+            this._render_types.remove_node(guinode, RT_POLYGON);
+            rt = this._render_types.add_polygon(guinode.shaded_color());
+        }
+
+        rt.add_node(guinode);
+
+        guinode.pop_state();
     }
 
     /**
@@ -1395,7 +1408,6 @@ class GUI {
      * @param {boolean} [swap=true] if we should swap buffer or not
      */
     draw(layer = 'default', swap = true) {
-   
         if (_draw_calls++ > 180) {
             // check for state changes every nth frame
             for (var i = 0; i < this._nodes.length; ++i) {
@@ -1404,12 +1416,14 @@ class GUI {
                 if (state == STATE_NO_CHANGE) {
                     continue;
                 }
-/*
+
                 if (state == STATE_CHANGE_TO_FRONT) {
+                    console.log('bringing to front');
                     this._render_types.push_to_front(node);
                     node.pop_state();
                 }
                 else if (state == STATE_CHANGE_TO_BACK) {
+                    onsole.log('to back');
                     this._render_types.push_back(node);
                     node.pop_state();
                 }
@@ -1418,7 +1432,10 @@ class GUI {
                     var rt_i = this._render_types.add_icon();
                     rt_i.add_node(node);
                     node.pop_state();
-                }*/
+                }
+                else {
+                    this.state_change_node(node);
+                }
             }
 
             _draw_calls = 0;

@@ -60,11 +60,12 @@ class Render_type {
      * @param {GUI_node} gui_node node to remove, if found
      */
     remove_node(gui_node) {
+
         if (gui_node.id() in this._nodes) {
             delete this._nodes[gui_node.id()];
         }
         else {
-
+        
         }
     }
 
@@ -94,7 +95,7 @@ class Render_type {
 
         for (var k in this._nodes) {
             var n = this._nodes[k];
-            info.push({id: n.id()});
+            info.push({id: n.id(), t: n.shape()});
         }
 
         console.log(JSON.stringify(info));
@@ -140,9 +141,9 @@ class Render_type_handler {
      * 
      * @param {String} background_color bg color
      */
-    add_square(background_color) {
-        for (var k in this._render_types[0]) {
-            var rt = this._render_types[0][k];
+    add_square(background_color, z = 0) {
+        for (var k in this._render_types[z + 0]) {
+            var rt = this._render_types[z + 0][k];
 
             if (rt.type == RT_SQUARE && rt.color == background_color) {
                 return rt;
@@ -151,7 +152,7 @@ class Render_type_handler {
         
         var rt = new Render_type(_rt_ids++, RT_SQUARE, background_color, null, null);
 
-        this._render_types[0][rt.id] = rt;
+        this._render_types[z + 0][rt.id] = rt;
 
         return rt;
     }
@@ -163,9 +164,9 @@ class Render_type_handler {
      * 
      * @param {String} background_color bg color
      */
-    add_polygon(background_color) {
-        for (var k in this._render_types[0]) {
-            var rt = this._render_types[0][k];
+    add_polygon(background_color, z = 0) {
+        for (var k in this._render_types[z + 0]) {
+            var rt = this._render_types[z + 0][k];
 
             if (rt.type == RT_POLYGON && rt.color == background_color) {
                 return rt;
@@ -174,7 +175,7 @@ class Render_type_handler {
         
         var rt = new Render_type(_rt_ids++, RT_POLYGON, background_color, null, null);
 
-        this._render_types[0][rt.id] = rt;
+        this._render_types[z + 0][rt.id] = rt;
 
         return rt;
     }
@@ -298,19 +299,18 @@ class Render_type_handler {
      * @param {GUI_node} gui_node
      */
     push_to_front(gui_node) {
-        for(var i = 0; i < this._render_types.length; ++i) {
-            for (var k in this._render_types[i]) {
-                var n = this._render_types[i][k].pop_node(n);
 
-                if (n != null) {
-                    if (i == 2 || i == 3) {
-                        console.error('Node is already the furthest forward possible');
-                    }
-                    else {
-                        this._render_types[i+2][k].add_node(n);
-                    }                    
-                }
-            }
+        this.remove_node_from_all(gui_node);
+
+        if (gui_node.shape() == 'square') {
+            var rt = this.add_square(gui_node.background_color());
+
+            rt.add_node(gui_node);
+        }
+        else if (gui_node.shape() == 'polygon') {
+            var rt = this.add_polygon(gui_node.background_color());
+
+            rt.add_node(gui_node);
         }
     }
 

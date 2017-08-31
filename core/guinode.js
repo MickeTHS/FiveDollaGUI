@@ -21,6 +21,7 @@ const STATE_NO_CHANGE = 0;
 const STATE_CHANGE_TO_FRONT = 1;
 const STATE_CHANGE_TO_BACK = 2;
 const STATE_ICON_ADDED = 3;
+const STATE_COLOR_CHANGE = 4;
 
 const ICON_STYLE_NORMAL = 1;
 const ICON_STYLE_STRETCHED = 2;
@@ -510,10 +511,10 @@ class GUI_node
     set_background_color(color) {
         this._background_color = color;
         this._shaded_color = color;
+    }
 
-        if (this._rth != null) {
-            this._rt = this._rth.add(this._shape, this._background_color, this._border_thickness, this._border_color);
-        }
+    background_color() {
+        return this._background_color;
     }
 
     /**
@@ -524,9 +525,7 @@ class GUI_node
     set_border_color(color) {
         this._border_color = color;
 
-        if (this._rth != null) {
-            this._rt = this._rth.add(this._shape, this._background_color, this._border_thickness, this._border_color);
-        }
+        this._state_changes.push(STATE_COLOR_CHANGE);
     }
 
     /**
@@ -536,10 +535,6 @@ class GUI_node
      */
     set_border_thickness(thickness) {
         this._border_thickness = thickness;
-
-        if (this._rth != null) {
-            this._rt = this._rth.add(this._shape, this._background_color, this._border_thickness, this._border_color);
-        }
     }
 
     /**
@@ -557,7 +552,7 @@ class GUI_node
 
         if (recalculate) {
             this.recalculate();
-        }        
+        }
     }
 
     state() {
@@ -577,7 +572,11 @@ class GUI_node
     }
 
     pop_state() {
-        this._state_changes.shift();
+        this._state_changes.splice(0,1);
+    }
+
+    clear_states() {
+        this._state_changes = [];
     }
     
     /**
