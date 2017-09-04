@@ -1161,7 +1161,11 @@ class GUI {
         var nodes = this.get_nodes_at_pos(x, y);
 
         for (var i = 0; i < this._selected_nodes.length; ++i) {
+            
             var node = this._selected_nodes[i];
+            if (!node.highlightable()) {
+                continue;
+            }
             node.set_selected(false);
             this.mark_changed_node(node);
 
@@ -1183,7 +1187,9 @@ class GUI {
         this._selected_nodes = [];
 
         for (var k in nodes) {
-            
+            if (!nodes[k].highlightable()) {
+                continue;
+            }
             this._selected_nodes.push(nodes[k]);
             nodes[k].set_selected(true);
             var rt = null;
@@ -1265,8 +1271,7 @@ class GUI {
         }
 
         var q = this.get_quad_at_pos(x,y);
-        console.log(q.id());
-
+        
         if (this.locked()) { return; }
         
         if (this._high_node != null) {
@@ -1402,13 +1407,25 @@ class GUI {
         }
     }
 
+    get_shapes(type) {
+        var arr = [];
+
+        for (var i = 0; i < this._nodes.length; ++i) {
+            if (this._nodes[i].shape() == type) {
+                arr.push(this._nodes[i]);
+            }
+        }
+
+        return arr;
+    }
+
     
     /**
      * @param {String} layer name of the layer to draw
      * @param {boolean} [swap=true] if we should swap buffer or not
      */
     draw(layer = 'default', swap = true) {
-        if (_draw_calls++ > 180) {
+        if (_draw_calls++ > 45) {
             // check for state changes every nth frame
             for (var i = 0; i < this._nodes.length; ++i) {
                 var node = this._nodes[i];
@@ -1418,17 +1435,15 @@ class GUI {
                 }
 
                 if (state == STATE_CHANGE_TO_FRONT) {
-                    console.log('bringing to front');
+                    
                     this._render_types.push_to_front(node);
                     node.pop_state();
                 }
                 else if (state == STATE_CHANGE_TO_BACK) {
-                    onsole.log('to back');
                     this._render_types.push_back(node);
                     node.pop_state();
                 }
                 else if (state == STATE_ICON_ADDED) {
-                    console.log('icon added, will add to render state');
                     var rt_i = this._render_types.add_icon();
                     rt_i.add_node(node);
                     node.pop_state();
