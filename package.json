@@ -1,0 +1,40 @@
+{
+  "name": "FiveDollaGUIUnitTests",
+  "version": "1.0.0",
+  "description": "FiveDollaGUIUnitTests",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": "",
+  "author": "Larry",
+  "license": "BSD",
+  "dependencies": {
+    "@types/express": "^4.0.39",
+    "@types/express-session": "^1.15.6",
+    "@types/formidable": "^1.0.29",
+    "@types/moment": "^2.13.0",
+    "@types/node": "^8.0.53",
+    "@types/winston": "^2.3.7",
+    "async": "*",
+    "body-parser": "*",
+    "cheerio": "*",
+    "cookie": "*",
+    "cookie-parser": "*",
+    "express": "*",
+    "express-mysql-session": "*",
+    "express-session": "*",
+    "express-ws": "*",
+    "jsonlint": "*",
+    "moment": "*",
+    "mysql": "2.12",
+    "request": "*",
+    "uuid": "*",
+    "winston": "^2.4.0"
+  },
+  "devDependencies": {
+    "gulp": "^3.9.1",
+    "gulp-typescript": "^3.2.3",
+    "typescript": "^2.6.1"
+  }
+}
