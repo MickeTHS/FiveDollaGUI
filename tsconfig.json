@@ -1,0 +1,11 @@
+{
+    "compilerOptions": {
+        "outDir": "./core",
+        "allowJs": true,
+        "target": "es5"
+    },
+    "include": [
+        "./core_src**/*",
+        "./node_modules/*"
+    ]
+}
