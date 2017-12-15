@@ -80,6 +80,7 @@ export class Render_screen {
     
     /* give the canvas id you want to draw to */
     constructor(canvas_id: string, width: number, height: number) {
+        console.log('Constructor for Render_screen');
 		this._mainscreen 		= document.getElementById(canvas_id) as HTMLCanvasElement;
 		this._mainscreen_ctx 	= this._mainscreen.getContext("2d");
 		this._offscreen 		= document.createElement("canvas");

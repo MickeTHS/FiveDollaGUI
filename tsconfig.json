@@ -1,8 +1,11 @@
 {
     "compilerOptions": {
-        "outDir": "./core",
+        "outDir":"./core/",
         "allowJs": true,
-        "target": "es5"
+        "target": "es5",
+        "removeComments": true,
+        "noImplicitAny": false,
+        "sourceMap": false
     },
     "include": [
         "./core_src**/*",

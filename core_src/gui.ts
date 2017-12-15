@@ -60,91 +60,6 @@ var sort_nodes_by_rt = function(a, b) {
 }
   */
 
-
-var on_mouse_over = function(event) {
-    
-    for (var i = 0; i < _gui_containers.length; ++i) {
-        var g = _gui_containers[i];
-        g._mouse_inside = true;
-    }
-}
-
-var on_mouse_out = function(event) {
-    console.log('MOUSE OUT');
-    var x = event.clientX;
-    var y = event.clientY;
-
-
-    for (var i = 0; i < _gui_containers.length; ++i) {
-        var g = _gui_containers[i];
-        g._mouse_inside = false;
-        var rect = g.canvas().getBoundingClientRect();
-        var myrect = {x: rect.left, y: rect.top, w: rect.width, h: rect.height };
-        
-        //if (!point_in_rect(x, y, myrect)) {
-        g.mouseout(x - myrect.x, y - myrect.y);
-        //}
-    }
-}
-
-var on_mouse_move = function(event) {
-    
-    for (var i = 0; i < _gui_containers.length; ++i) {
-        
-        var g = _gui_containers[i];
-        var rect = g.canvas().getBoundingClientRect();
-
-        var x = event.clientX - rect.left;
-        var y = event.clientY - rect.top;
-
-        //console.log('MOUSE MOVE: ' + x + ' y: ' + y);
-
-        g.mousemove(x, y);
-    }
-}
-
-var on_mouse_down = function(event) {
-    
-    for (var i = 0; i < _gui_containers.length; ++i) {
-        
-    
-        var g = _gui_containers[i];
-        var rect = g.canvas().getBoundingClientRect();
-        var x = event.clientX - rect.left;
-        var y = event.clientY - rect.top;
-
-        console.log('MOUSE DOWN: ' + x + ' y: ' + y);
-
-        g.mousedown(x, y, event.button);
-    }
-}
-
-var on_mouse_up = function(event) {
-    
-    console.log('MOUSE UP');
-    for (var i = 0; i < _gui_containers.length; ++i) {
-        var g = _gui_containers[i];
-        var rect = g.canvas().getBoundingClientRect();
-
-        var x = event.clientX - rect.left;
-        var y = event.clientY - rect.top;
-
-        g.mouseup(x, y, event.button);
-    }
-}
-
-
-var on_mouse_wheel = function (e, canvas) {
-    for (var i = 0; i < _gui_containers.length; ++i) {
-        if (canvas == _gui_containers[i].canvas()) {
-            var g = _gui_containers[i];
-            var delta = Math.max(-1, Math.min(1, (e.wheelDelta || -e.detail)));
-            
-            g.wheel(delta);
-        }
-    }
-}
-
 function is_event_supported(eventName) {
     var el = document.createElement('div');
     eventName = 'on' + eventName;
@@ -223,7 +138,7 @@ function handleTouchMove(evt) {
  * 
  * @class
  */
-class GUI {
+export class GUI {
     private _select_boxing:     { running: boolean, rect: Rect };
     private _draw_history:      [number];
     private _anchor_point:      number;
@@ -279,9 +194,26 @@ class GUI {
      * @param {number} quad_division default 8 will create a grid of 8x8 quads for optimization purposes
      */
     constructor(canvas_id, anchor_point: number = Anchor.ANCHOR_CENTER, quad_division = 2) {
+        console.log('GUI Constructor for ' + canvas_id);
         _gui_containers.push(this);
 
-        init_selection_box();
+        //init_selection_box();
+
+        this._select_boxing = { running: false, rect: null };
+        this._draw_history  = [] as [number];
+        this._anchor_point  = anchor_point;
+        this._canvas_elem   = document.getElementById(canvas_id) as HTMLCanvasElement;
+        this._width         = this._canvas_elem.offsetWidth;
+        this._height        = this._canvas_elem.offsetHeight;
+
+        var canvas = this._canvas_elem;
+
+        this._renderer      = new Render_screen(canvas_id, this._width, this._height);
+        this._renderer.set_font(12, 'Verdana');
+
+        this._zoom_enabled       = false;
+        this._pan_enabled        = false;
+        this._select_box_enabled = false;
 
         this._events = {}
         this._events['click'] = [] as [(x: number, y: number, button: number, node: GUI_node) => void ];
@@ -292,27 +224,15 @@ class GUI {
         this._events['mousedown'] = [] as [(x: number, y: number, button: number, node: GUI_node) => void ];
         this._events['mouseup'] = [] as [(x: number, y: number, button: number, node: GUI_node) => void ];
 
-        this._select_boxing = { running: false, rect: null };
+        var _this = this;
+        canvas.addEventListener('mousedown', function(e) { _this.on_mouse_down(e); }, false);
+        canvas.addEventListener('mouseup', function(e) { _this.on_mouse_up(e); }, false);
+        canvas.addEventListener('mousemove', function(e) { _this.on_mouse_move(e); }, false);
+        canvas.addEventListener('mouseover', function(e) { _this.on_mouse_over(e); }, false);
 
-        this._draw_history = [] as [number];
 
-        this._anchor_point = anchor_point;
-
-        this._canvas_elem = document.getElementById(canvas_id) as HTMLCanvasElement;
-
-        this._width = this._canvas_elem.offsetWidth;
-        this._height = this._canvas_elem.offsetHeight;
-
-        this._renderer = new Render_screen(canvas_id, this._width, this._height);
-        this._renderer.set_font(12, 'Verdana');
-
-        this._zoom_enabled       = false;
-        this._pan_enabled        = false;
-        this._select_box_enabled = false;
-        
-        
         // when document is finished loading
-        document.addEventListener('DOMContentLoaded', function(){
+        /*document.addEventListener('DOMContentLoaded', function(){
             
             var htmls = document.getElementsByTagName('html');
             var bodys = document.getElementsByTagName('body');
@@ -325,12 +245,13 @@ class GUI {
                 console.error('num <body> tags is 0, critical error');
             }
 
+            
             for (var i = 0; i < htmls.length; ++i) {
                 //htmls[i].style.height= "100%";
                 //htmls[i].style.overflow= "hidden";
                 console.log('setting html style');
 
-                htmls[i].setAttribute('onmouseover',    'on_mouse_over(event);');
+                //htmls[i].setAttribute('onmouseover',    'on_mouse_over(event);');
                 //htmls[i].setAttribute('onmouseout',     'on_mouse_out(event);');
                 htmls[i].setAttribute('onmousemove',    'on_mouse_move(event);');
                 htmls[i].setAttribute('onmousedown',    'on_mouse_down(event);');
@@ -346,7 +267,7 @@ class GUI {
                 break;
             }
 
-        }, false);
+        }, false);*/
 
         this._draw_counter = 0;
 
@@ -390,6 +311,66 @@ class GUI {
         this.add_layer(this._layer);
 
     }
+
+
+    private on_mouse_over(event) {
+        this._mouse_inside = true;
+    }
+
+    private on_mouse_out(event) {
+        console.log('MOUSE OUT');
+        var x = event.clientX;
+        var y = event.clientY;
+
+        this._mouse_inside = false;
+
+        var rect = this._canvas_elem.getBoundingClientRect();
+        var myrect = {x: rect.left, y: rect.top, w: rect.width, h: rect.height };
+        
+        this.mouseout(x - myrect.x, y - myrect.y);
+    }
+
+    private on_mouse_move(event) {
+        console.log('mouse moved');
+        var rect = this._canvas_elem.getBoundingClientRect();
+
+        var x = event.clientX - rect.left;
+        var y = event.clientY - rect.top;
+
+        this.mousemove(x, y);
+    }
+
+    private on_mouse_down(event) {
+        var rect = this._canvas_elem.getBoundingClientRect();
+        var x = event.clientX - rect.left;
+        var y = event.clientY - rect.top;
+
+        console.log('MOUSE DOWN: ' + x + ' y: ' + y);
+
+        this.mousedown(x, y, event.button);
+    }
+
+    private on_mouse_up(event) {
+    
+        console.log('MOUSE UP');
+        
+        var rect = this._canvas_elem.getBoundingClientRect();
+
+        var x = event.clientX - rect.left;
+        var y = event.clientY - rect.top;
+
+        this.mouseup(x, y, event.button);
+    }
+
+
+    private on_mouse_wheel(e, canvas) {
+        if (canvas == this._canvas_elem) {
+            var delta = Math.max(-1, Math.min(1, (e.wheelDelta || -e.detail)));
+            
+            this.wheel(delta);
+        }
+    }
+
 
     /**
      * returns the average amount of drawcalls per frame based on the 60 most recent frames
@@ -1531,7 +1512,9 @@ class GUI {
      * @param {boolean} [swap=true] if we should swap buffer or not
      */
     draw(layer = 'default', swap = true) {
+
         if (_draw_calls++ > 45) {
+            console.log('draw call');
             // check for state changes every nth frame
             for (var i = 0; i < this._nodes.length; ++i) {
                 var node = this._nodes[i];

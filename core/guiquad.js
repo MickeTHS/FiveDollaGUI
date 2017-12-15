@@ -1,48 +1,26 @@
-var NODE_NOT_INSIDE = 0;
-var NODE_FULLY_INSIDE = 2;
-var NODE_PARTIALLY_INSIDE = 1;
-/**
- * internal class used to optimize the drawing to canvas
- *
- * @class
- */
-var GUI_quad = /** @class */ (function () {
-    /**
-     *
-     * @param {Renderer} renderer the renderer
-     * @param {JSON} rect x, y, w, h
-     */
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var guimath_1 = require("./guimath");
+var guitypes_1 = require("./guitypes");
+var guitypes_2 = require("./guitypes");
+var GUI_quad = (function () {
     function GUI_quad(renderer, rect, id) {
-        //this._rect      = { x: offset_x, y: offset_y, w: width, h: height };
         this._renderer = renderer;
         this._changed = true;
         this._rect = rect;
         this._img_rect = { x: 0, y: 0, w: 0, h: 0 };
-        // correct due to pixel perfectness
         this._pp_rect = { x: this._rect.x - 0.5, y: this._rect.y - 0.5, w: this._rect.w + 0.5, h: this._rect.w + 0.5 };
         this._layers = {};
         this._bg_color = '#000000';
         this._id = id;
         this._bg_image = null;
     }
-    /**
-     * @returns {boolean} grid id
-     */
     GUI_quad.prototype.id = function () {
         return this._id;
     };
-    /**
-     *
-     * @returns {JSON} x, y, w, h
-     */
     GUI_quad.prototype.rect = function () {
         return this._rect;
     };
-    /**
-     * if the quad has any elements with a change inside, returns true
-     *
-     * @returns {boolean}
-     */
     GUI_quad.prototype.is_changed = function () {
         return this._changed;
     };
@@ -56,27 +34,21 @@ var GUI_quad = /** @class */ (function () {
         }
         return null;
     };
-    /**
-     * calculate if the node is inside the quad
-     *
-     * @param {GUI_node} gui_node the gui node to add
-     */
     GUI_quad.prototype.calc_node_inside = function (gui_node) {
         var bordered_rect = null;
         if (gui_node.shape() == 'polygon') {
             bordered_rect = gui_node.br();
         }
         else {
-            bordered_rect = gui_node.ap_border_rect(ANCHOR_TOPLEFT);
+            bordered_rect = gui_node.ap_border_rect(guitypes_1.Anchor.ANCHOR_TOPLEFT);
         }
-        //console.log('r1: ' + bordered_rect.x + ', ' + bordered_rect.y + ', ' + bordered_rect.w + ', ' + bordered_rect.h);
-        if (a_rect_contains_b(this._pp_rect, bordered_rect)) {
-            return NODE_FULLY_INSIDE;
+        if (guimath_1.FDGMath.a_rect_contains_b(this._pp_rect, bordered_rect)) {
+            return guitypes_2.NodeOverlaps.NODE_FULLY_INSIDE;
         }
-        if (a_rect_overlaps_b(this._pp_rect, bordered_rect)) {
-            return NODE_PARTIALLY_INSIDE;
+        if (guimath_1.FDGMath.a_rect_overlaps_b(this._pp_rect, bordered_rect)) {
+            return guitypes_2.NodeOverlaps.NODE_PARTIALLY_INSIDE;
         }
-        return NODE_NOT_INSIDE;
+        return guitypes_2.NodeOverlaps.NODE_NOT_INSIDE;
     };
     GUI_quad.prototype.clear_nodes = function (layer) {
         if (layer === void 0) { layer = 'default'; }
@@ -84,11 +56,6 @@ var GUI_quad = /** @class */ (function () {
             this._layers[layer] = {};
         }
     };
-    /**
-     * Add GUI_node to the quad
-     *
-     * @param {GUI_node} gui_node the gui node to add
-     */
     GUI_quad.prototype.add_node = function (gui_node, layer) {
         if (layer === void 0) { layer = 'default'; }
         if (!this._layers.hasOwnProperty(layer)) {
@@ -97,37 +64,16 @@ var GUI_quad = /** @class */ (function () {
         this.set_changed(true);
         this._layers[layer][gui_node.id()] = gui_node;
     };
-    /**
-     * get all nodes in this quads layer
-     *
-     * @returns {Map<GUI_node>} nodes
-     */
     GUI_quad.prototype.nodes = function (layer) {
         if (layer === void 0) { layer = 'default'; }
         return this._layers[layer];
     };
-    /**
-     * if set to true, will force the quad to draw
-     * @param {boolean} changed true to force draw, false to force it to not draw
-     */
     GUI_quad.prototype.set_changed = function (changed) {
         this._changed = changed;
     };
-    /**
-     * sets the background color for the quad
-     *
-     * @param {String} color hex rgb with leading #
-     */
     GUI_quad.prototype.set_bg_color = function (color) {
         this._bg_color = color;
     };
-    /**
-     * Returns the GUI_node we can find at the given x and y coordinate
-     *
-     * @param {number} x
-     * @param {number} y
-     * @returns {Map<GUI_node>} the GUI_node we found, null if nothing
-     */
     GUI_quad.prototype.get_nodes_at_pos = function (x, y, layer) {
         if (layer === void 0) { layer = 'default'; }
         var nodes = {};
@@ -139,44 +85,28 @@ var GUI_quad = /** @class */ (function () {
         }
         return nodes;
     };
-    /**
-     * Sets a background image for the quad with the given clipping rect
-     *
-     * @param {Image} image image object
-     * @param {JSON} rect x, y, w, h
-     */
     GUI_quad.prototype.set_bg_image = function (image, rect) {
         this._bg_image = image;
         this._img_rect = rect;
     };
-    /**
-     *
-     * main draw function for quad
-     *
-     * @param {String} layer layer identifier
-     * @param {boolean} swap if we should swap buffer (false means you make another later drawcall)
-     */
     GUI_quad.prototype.draw = function (layer, swap, force_draw) {
         if (layer === void 0) { layer = 'default'; }
         if (swap === void 0) { swap = true; }
         if (force_draw === void 0) { force_draw = false; }
         if (!force_draw && !this.is_changed()) {
-            return;
+            return force_draw;
         }
         this._renderer.pre_draw();
         this.set_changed(false);
         if (this._bg_image != null) {
-            this._renderer.draw_image_ctx(this._bg_image, this._img_rect, this._rect);
         }
         else {
             this._renderer.draw_box(this._rect.x, this._rect.y, this._rect.w, this._rect.h, this._bg_color, this._bg_color, 0);
         }
-        // draw each node
         for (var k in this._layers[layer]) {
             this._layers[layer][k].draw(false);
         }
         this._renderer.post_draw();
-        // swap the buffer for the rect
         this._renderer.swap_buffer(this._rect);
         return force_draw;
     };
@@ -186,3 +116,4 @@ var GUI_quad = /** @class */ (function () {
     };
     return GUI_quad;
 }());
+exports.GUI_quad = GUI_quad;

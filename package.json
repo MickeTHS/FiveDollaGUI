@@ -35,6 +35,8 @@
   "devDependencies": {
     "gulp": "^3.9.1",
     "gulp-typescript": "^3.2.3",
-    "typescript": "^2.6.1"
+    "typescript": "^2.6.1",
+    "uglifyjs-webpack-plugin": "^1.1.2",
+    "webpack": "^3.10.0"
   }
 }

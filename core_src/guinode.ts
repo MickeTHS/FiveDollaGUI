@@ -702,6 +702,8 @@ export class GUI_node
         this.set_rect(r);
     }
 
+    calc_nodes_pos() {}
+
     /**
      * Marks this node as selected
      * 
@@ -779,6 +781,8 @@ export class GUI_node
     highlighted() : boolean {
         return this._highlighted;
     }
+
+    draw(empty: boolean) {}
 
     
     /**

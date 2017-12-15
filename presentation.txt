@@ -1,0 +1,3 @@
+smcd: 2249 rader C++ kod
+backend: 2975 rader JavaScript kod
+frontend: 8483 rader JavaScript kod samt ca 3000 rader HTML

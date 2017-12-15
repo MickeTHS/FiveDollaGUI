@@ -1,21 +1,6 @@
-/**
- * FiveDollaGUI
-
-Copyright 2017 Michael "Larry" Nilsson
-
-Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-
-3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- 
- */
-/* a box to store nodes in */
-var GUI_box = /** @class */ (function () {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var GUI_box = (function () {
     function GUI_box(renderobj) {
         this._renderer = renderobj;
         this._caption_color = '#ffffff';
@@ -30,7 +15,7 @@ var GUI_box = /** @class */ (function () {
         this._hit_test = true;
         this._left_margin = 0;
         this._draggable = false;
-        this._on_click = 0;
+        this._on_click = null;
         this._highlighted = false;
         this._highlightable = true;
         this._mx = 0;
@@ -40,6 +25,7 @@ var GUI_box = /** @class */ (function () {
         this._font = 'Bitstream2';
         this._static_color = false;
         this._highlight_color = '#44aa44';
+        this._border_thickness = 1;
     }
     GUI_box.prototype.rect = function () { return this._rect; };
     GUI_box.prototype.set_static_color = function (st) { this._static_color = st; };
@@ -76,9 +62,6 @@ var GUI_box = /** @class */ (function () {
     GUI_box.prototype.selectable = function () { return this._selectable; };
     GUI_box.prototype.on_click = function (func) {
         this._on_click = func;
-    };
-    GUI_box.prototype.set_hostname = function (hostname) {
-        this._hostname = hostname;
     };
     GUI_box.prototype.set_draggable = function (draggable) {
         this._draggable = draggable;
@@ -149,42 +132,21 @@ var GUI_box = /** @class */ (function () {
     GUI_box.prototype.content_width = function () {
         return this._rect.w;
     };
-    /**
-     * Sets if the node should be allowed to be highlighted
-     *
-     * @param {boolean} highlightable
-     */
     GUI_box.prototype.set_highlightable = function (highlightable) {
         this._highlightable = highlightable;
     };
-    /**
-     * @returns {boolean}
-     */
     GUI_box.prototype.highlightable = function () {
         return this._highlightable;
     };
-    /**
-     * Sets the node to have a highlighted state
-     *
-     * @param {boolean} highlighted
-     */
     GUI_box.prototype.set_highlighted = function (highlighted) {
         if (!this._highlightable) {
             return;
         }
         this._highlighted = highlighted;
     };
-    /**
-     * Returns if its a highlighted state
-     *
-     * @returns {boolean}
-     */
     GUI_box.prototype.highlighted = function () {
         return this._highlighted;
     };
-    /**
-     * Calculates the nodes positions inside the box
-     */
     GUI_box.prototype.calc_nodes_pos = function () {
         var y = this._rect.y;
         var y_offset = 0;
@@ -211,15 +173,8 @@ var GUI_box = /** @class */ (function () {
             }
         }
     };
-    /**
-     * Draws itself and its children
-     *
-     * @returns {GUI_node|GUI_box} later nodes to draw
-     */
     GUI_box.prototype.draw = function () {
-        if (this.status_func != 0) {
-            this.status_func();
-        }
+        console.log('ERROR: draw call on box, deprecated???');
         var shaded_color = this._bg_color;
         if (this._selected) {
             shaded_color = this._renderer.calc_shade_color(shaded_color, 0.5);
@@ -232,7 +187,7 @@ var GUI_box = /** @class */ (function () {
         }
         this._renderer.draw_box(this._rect.x, this._rect.y, this._rect.w, this._rect.h, shaded_color, bc, bt);
         if (this._caption != '') {
-            var w = this._renderer.calc_text_width(this._font_size + 'px ' + this._font, this._caption);
+            var w = this._renderer.calc_text_width(this._caption);
             this._renderer.draw_text_color(this._rect.x + this._rect.w / 2 - w / 2, this._rect.y + 20, this._font, this._font_size, this._caption_color, this._caption);
         }
         var later = null;
@@ -244,16 +199,7 @@ var GUI_box = /** @class */ (function () {
         }
         return later;
     };
-    /**
-     * Performs a hit test on this node and all children
-     * Returns the node we have a successful hit test on
-     *
-     * @param {number} x
-     * @param {number} y
-     * @returns {GUI_node|GUI_box} or null if not found
-     */
     GUI_box.prototype.hit_test = function (x, y) {
-        // first hit test our children
         for (var i = 0; i < this._nodes.length; ++i) {
             if (this._nodes[i].is_box()) {
                 var n = this._nodes[i].hit_test(x, y);

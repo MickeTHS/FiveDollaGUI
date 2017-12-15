@@ -32,8 +32,8 @@ import { GUI_node } from './guinode';
 
 class GUI_box {
     private _renderer: Render_screen;
-    private _caption_color: string;
-    private _rect:          {x: number, y: number, w: number, h: number};
+    private _caption_color:  string;
+    private _rect:           Rect;
     private _caption:        string;
     private _nodes:          [GUI_node]
     private _bg_color:       string;
@@ -303,7 +303,7 @@ class GUI_box {
      * @returns {GUI_node|GUI_box} later nodes to draw
      */
     draw() : GUI_node|GUI_box {
-        
+        console.log('ERROR: draw call on box, deprecated???');
         var shaded_color = this._bg_color;
 
         if (this._selected) {
@@ -322,7 +322,8 @@ class GUI_box {
         this._renderer.draw_box(this._rect.x, this._rect.y, this._rect.w, this._rect.h, shaded_color, bc, bt);
 
         if (this._caption != '') {
-            var w = this._renderer.calc_text_width(this._font_size + 'px ' + this._font, this._caption);
+            var w = this._renderer.calc_text_width(this._caption);
+            //var w = this._renderer.calc_text_width(this._font_size + 'px ' + this._font, this._caption);
             this._renderer.draw_text_color(this._rect.x + this._rect.w/2 - w/2, this._rect.y + 20, this._font, this._font_size, this._caption_color, this._caption);
         }
 
